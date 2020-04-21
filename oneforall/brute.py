@@ -10,8 +10,6 @@ OneForAll子域爆破模块
 import json
 import time
 import stat
-import queue
-import asyncio
 import random
 import secrets
 import platform
@@ -19,15 +17,18 @@ import subprocess
 
 import exrex
 import fire
+from tenacity import TryAgain, retry, stop_after_attempt
+from dns.exception import Timeout
+from dns.resolver import Answer
 
 import config
 import dbexport
 from common import resolve, utils
 from common.module import Module
-from common.database import Database
 from config import logger
 
 
+@retry(stop=stop_after_attempt(3))
 def detect_wildcard(domain):
     """
     探测域名是否使用泛解析
@@ -42,17 +43,23 @@ def detect_wildcard(domain):
     try:
         answer = resolver.query(random_subdomain, 'A')
     # 如果查询随机域名A记录出错 说明不存在随机子域的A记录 即没有开启泛解析
+    except Timeout as e:
+        logger.log('ALERT', f'探测超时将重新探测')
+        logger.log('DEBUG', e.args)
+        raise TryAgain
     except Exception as e:
         logger.log('DEBUG', e.args)
         logger.log('INFOR', f'{domain}没有使用泛解析')
         return False
-    ttl = answer.ttl
-    name = answer.name
-    ips = {item.address for item in answer}
-    logger.log('ALERT', f'{domain}使用了泛解析')
-    logger.log('ALERT', f'{random_subdomain} 解析到域名: {name} '
-                        f'IP: {ips} TTL: {ttl}')
-    return True
+    if isinstance(answer, Answer):
+        ttl = answer.ttl
+        name = answer.name
+        ips = {item.address for item in answer}
+        logger.log('ALERT', f'{domain}使用了泛解析')
+        logger.log('ALERT', f'{random_subdomain} 解析到域名: {name} '
+                            f'IP: {ips} TTL: {ttl}')
+        return True
+    return False
 
 
 def gen_fuzz_subdomains(expression, rule):
@@ -405,7 +412,7 @@ class Brute(Module):
         brute.py --target d.com --fuzz True --place m.*.d.com --rule '[a-z]' run
 
     Note:
-        参数valid可选值1，0，None，分别表示导出有效，无效，全部子域
+        参数alive可选值True，False分别表示导出存活，全部子域结果
         参数format可选格式有'txt', 'rst', 'csv', 'tsv', 'json', 'yaml', 'html',
                           'jira', 'xls', 'xlsx', 'dbf', 'latex', 'ods'
         参数path默认None使用OneForAll结果目录自动生成路径
@@ -422,14 +429,14 @@ class Brute(Module):
     :param str place:        指定爆破位置(开启fuzz模式时必需指定此参数)
     :param str rule:         指定fuzz模式爆破使用的正则规则(开启fuzz模式时必需指定此参数)
     :param bool export:      是否导出爆破结果(默认True)
-    :param bool valid:       只导出有效的子域结果(默认False)
+    :param bool alive:       只导出存活的子域结果(默认True)
     :param str format:       结果导出格式(默认csv)
     :param str path:         结果导出路径(默认None)
     """
 
     def __init__(self, target, process=None, concurrent=None, word=False,
                  wordlist=None, recursive=False, depth=None, nextlist=None,
-                 fuzz=False, place=None, rule=None, export=True, valid=True,
+                 fuzz=False, place=None, rule=None, export=True, alive=True,
                  format='csv', path=None):
         Module.__init__(self)
         self.module = 'Brute'
@@ -446,7 +453,7 @@ class Brute(Module):
         self.place = place or config.fuzz_place
         self.rule = rule or config.fuzz_rule
         self.export = export
-        self.valid = valid
+        self.alive = alive
         self.format = format
         self.path = path
         self.bulk = False  # 是否是批量爆破场景
@@ -600,7 +607,7 @@ class Brute(Module):
             # 数据库导出
             if self.export:
                 dbexport.export(self.domain,
-                                valid=self.valid,
+                                alive=self.alive,
                                 limit='resolve',
                                 path=self.path,
                                 format=self.format)

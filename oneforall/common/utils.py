@@ -40,7 +40,7 @@ def match_subdomain(domain, text, distinct=True):
     :rtype: set or list
     """
     regexp = r'(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.){0,}' \
-             + domain.replace('.', r'\.') + '$'
+             + domain.replace('.', r'\.')
     result = re.findall(regexp, text, re.I)
     if not result:
         return set()
@@ -124,19 +124,19 @@ def get_domains(target):
     elif isinstance(target, list):
         domains = target
     elif isinstance(target, str):
-        target = target.lower().strip()
-        domain = Domain(target).match()
-        if domain:
-            domains.append(domain)
+        path = Path(target)
+        if path.exists() and path.is_file():
+            with open(target, encoding='utf-8', errors='ignore') as file:
+                for line in file:
+                    line = line.lower().strip()
+                    domain = Domain(line).match()
+                    if domain:
+                        domains.append(domain)
         else:
-            path = Path(target)
-            if path.is_file() and path.exists():
-                with open(target, encoding='utf-8', errors='ignore') as file:
-                    for line in file:
-                        line = line.lower().strip()
-                        domain = Domain(line).match()
-                        if domain:
-                            domains.append(domain)
+            target = target.lower().strip()
+            domain = Domain(target).match()
+            if domain:
+                domains.append(domain)
     count = len(domains)
     if count == 0:
         logger.log('FATAL', f'获取到{count}个域名')
@@ -467,3 +467,15 @@ def delete_file(*paths):
             path.unlink()
         except Exception as e:
             logger.log('ERROR', e.args)
+
+
+def check_env():
+    system = platform.system()
+    implementation = platform.python_implementation()
+    if implementation != 'CPython':
+        logger.log('ALERT', f'当前Python是基于{implementation}实现但OneForAll只在CPython下测试通过')
+    if system == 'Windows' and implementation == 'CPython':
+        version = platform.python_version()
+        if version < '3.8':
+            logger.log('FATAL', 'OneForAll在Windows系统运行时需要Python 3.8以上版本')
+            exit(1)
