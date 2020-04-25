@@ -7,44 +7,52 @@ OneForAll子域爆破模块
 :copyright: Copyright (c) 2019, Jing Ling. All rights reserved.
 :license: GNU General Public License v3.0, see LICENSE for more details.
 """
+import gc
 import json
 import time
-import stat
 import random
 import secrets
-import platform
-import subprocess
 
 import exrex
 import fire
-from tenacity import TryAgain, retry, stop_after_attempt
+import tenacity
 from dns.exception import Timeout
-from dns.resolver import Answer
+from dns.resolver import NXDOMAIN, YXDOMAIN, NoAnswer, NoNameservers
 
 import config
 import dbexport
-from common import resolve, utils
+from common import utils
 from common.module import Module
 from config import logger
 
 
-@retry(reraise=True, stop=stop_after_attempt(3))
-def do_query_a(domain):
-    resolver = resolve.dns_resolver()
+@tenacity.retry(reraise=True, stop=tenacity.stop_after_attempt(3))
+def do_query_a(domain, resolver):
     try:
         answer = resolver.query(domain, 'A')
     # 如果查询随机域名A记录时抛出Timeout异常则重新探测
     except Timeout as e:
         logger.log('ALERT', f'探测超时重新探测中')
         logger.log('DEBUG', e.args)
-        raise TryAgain
-    # 如果查询随机域名A记录时抛出NXDOMAIN,YXDOMAIN,NoAnswer,NoNameservers异常
+        raise tenacity.TryAgain
+    except (YXDOMAIN, NoAnswer) as e:
+        logger.log('ALERT', f'结果无效重新探测中')
+        logger.log('DEBUG', e.args)
+        raise tenacity.TryAgain
+    # 如果查询随机域名A记录时抛出NXDOMAIN异常
     # 则说明不存在随机子域的A记录 即没有开启泛解析
-    except Exception as e:
+    except (NXDOMAIN, NoNameservers) as e:
         logger.log('DEBUG', e.args)
         logger.log('INFOR', f'{domain}没有使用泛解析')
         return False
-    if isinstance(answer, Answer):
+    except Exception as e:
+        logger.log('ALERT', f'探测{domain}是否使用泛解析出错')
+        logger.log('FATAL', e.args)
+        exit(1)
+    else:
+        if answer.rrset is None:
+            logger.log('ALERT', f'结果无记录重新探测中')
+            raise tenacity.TryAgain
         ttl = answer.ttl
         name = answer.name
         ips = {item.address for item in answer}
@@ -54,18 +62,23 @@ def do_query_a(domain):
         return True
 
 
-def detect_wildcard(domain):
+def detect_wildcard(domain, authoritative_ns):
     """
     探测域名是否使用泛解析
 
     :param str domain: 域名
+    :param list authoritative_ns: 权威DNS
     :return: 是否使用泛解析
     """
     logger.log('INFOR', f'正在探测{domain}是否使用泛解析')
     token = secrets.token_hex(4)
     random_subdomain = f'{token}.{domain}'
+    resolver = utils.dns_resolver()
+    resolver.nameservers = authoritative_ns
+    resolver.rotate = True
+    resolver.cache = None
     try:
-        wildcard = do_query_a(random_subdomain)
+        wildcard = do_query_a(random_subdomain, resolver)
     except Exception as e:
         logger.log('DEBUG', e.args)
         logger.log('FATAL', f'探测{domain}是否使用泛解析失败')
@@ -98,15 +111,6 @@ def gen_fuzz_subdomains(expression, rule):
     return subdomains
 
 
-def gen_domains(iterable, place):
-    subdomains = set()
-    for _ in range(place.count('*')):
-        for item in iterable:
-            subdomain = place.replace('*', item)
-            subdomains.add(subdomain)
-    return subdomains
-
-
 def gen_word_subdomains(expression, path):
     """
     生成基于word模式的爆破子域
@@ -135,7 +139,7 @@ def query_domain_ns_a(ns_list):
     if not isinstance(ns_list, list):
         return list()
     ns_ip_list = []
-    resolver = resolve.dns_resolver()
+    resolver = utils.dns_resolver()
     for ns in ns_list:
         try:
             answer = resolver.query(ns, 'A')
@@ -151,7 +155,8 @@ def query_domain_ns_a(ns_list):
 
 
 def query_domain_ns(domain):
-    resolver = resolve.dns_resolver()
+    domain = utils.get_maindomain(domain)
+    resolver = utils.dns_resolver()
     try:
         answer = resolver.query(domain, 'NS')
     except Exception as e:
@@ -163,25 +168,70 @@ def query_domain_ns(domain):
     return ns
 
 
-def get_wildcard_record(domain, authoritative_ns):
-    if not authoritative_ns:
-        return list(), int()
-    resolver = resolve.dns_resolver()
-    resolver.nameservers = authoritative_ns
-    token = secrets.token_hex(4)
-    random_subdomain = f'{token}.{domain}'
-    logger.log('INFOR', f'查询{random_subdomain}在权威DNS名称服务器的泛解析记录')
+@tenacity.retry(reraise=True, stop=tenacity.stop_after_attempt(2))
+def get_wildcard_record(domain, resolver):
+    logger.log('INFOR', f'查询{domain}在权威DNS名称服务器的泛解析记录')
     try:
-        answer = resolver.query(random_subdomain, 'A')
+        answer = resolver.query(domain, 'A')
+    # 如果查询随机域名A记录时抛出Timeout异常则重新查询
+    except Timeout as e:
+        logger.log('ALERT', f'查询超时重新查询中')
+        logger.log('DEBUG', e.args)
+        raise tenacity.TryAgain
+    except (YXDOMAIN, NoAnswer) as e:
+        logger.log('ALERT', f'结果无效重新查询中')
+        logger.log('DEBUG', e.args)
+        raise tenacity.TryAgain
+    except (NXDOMAIN, NoNameservers) as e:
+        logger.log('DEBUG', e.args)
+        logger.log('INFOR', f'{domain}在权威DNS名称服务器上没有A记录')
+        return None, None
     except Exception as e:
         logger.log('ERROR', e.args)
-        logger.log('ERROR', f'查询{random_subdomain}在权威DNS名称服务器泛解析记录出错')
-        return None, None
-    name = answer.name
-    ips = {item.address for item in answer}
-    ttl = answer.ttl
-    logger.log('INFOR', f'{random_subdomain} 在权威DNS上解析到域名: {name} '
-                        f'IP: {ips} TTL: {ttl}')
+        logger.log('ERROR', f'查询{domain}在权威DNS名称服务器泛解析记录出错')
+        exit(1)
+    else:
+        if answer.rrset is None:
+            logger.log('DEBUG', f'查询结果无记录')
+            return None, None
+        name = answer.name
+        ip = {item.address for item in answer}
+        ttl = answer.ttl
+        logger.log('INFOR', f'{domain} 在权威DNS上解析到域名: {name} '
+                            f'IP: {ip} TTL: {ttl}')
+        return ip, ttl
+
+
+def collect_wildcard_record(domain, authoritative_ns):
+    logger.log('INFOR', f'正在收集{domain}的泛解析记录')
+    if not authoritative_ns:
+        return list(), int()
+    resolver = utils.dns_resolver()
+    resolver.nameservers = authoritative_ns
+    resolver.rotate = True
+    resolver.cache = None
+    ips = set()
+    ips_stat = dict()
+    while True:
+        token = secrets.token_hex(4)
+        random_subdomain = f'{token}.{domain}'
+        ip, ttl = get_wildcard_record(random_subdomain, resolver)
+        if ip is None:
+            continue
+        ips = ips.union(ip)
+        # 统计每个泛解析IP出现次数
+        for addr in ip:
+            count = ips_stat.setdefault(addr, 0)
+            ips_stat[addr] = count + 1
+        # 筛选出出现次数2次以上的IP地址
+        addrs = list()
+        for addr, times in ips_stat.items():
+            if times >= 2:
+                addrs.append(addr)
+        # 大部分的IP地址出现次数大于2次停止收集泛解析IP记录
+        if len(addrs) / len(ips) >= 0.8:
+            break
+    logger.log('DEBUG', f'收集到{domain}的泛解析记录\n{ips}\n{ttl}')
     return ips, ttl
 
 
@@ -194,28 +244,6 @@ def get_nameservers_path(enable_wildcard, ns_ip_list):
     path = config.authoritative_dns_path
     ns_data = '\n'.join(ns_ip_list)
     utils.save_data(path, ns_data)
-    return path
-
-
-def get_massdns_path(massdns_dir):
-    path = config.brute_massdns_path
-    if path:
-        return path
-    system = platform.system().lower()
-    machine = platform.machine().lower()
-    name = f'massdns_{system}_{machine}'
-    if system == 'windows':
-        name = name + '.exe'
-        if machine == 'amd64':
-            massdns_dir = massdns_dir.joinpath('windows', 'x64')
-        else:
-            massdns_dir = massdns_dir.joinpath('windows', 'x84')
-    path = massdns_dir.joinpath(name)
-    path.chmod(stat.S_IXUSR)
-    if not path.exists():
-        logger.log('FATAL', '暂无该系统平台及架构的massdns')
-        logger.log('INFOR', '请尝试自行编译massdns并在配置里指定路径')
-        exit(0)
     return path
 
 
@@ -232,174 +260,155 @@ def check_dict():
         exit(0)
 
 
-def do_brute(massdns_path, dict_path, ns_path, output_path, log_path,
-             query_type='A', process_num=1, concurrent_num=10000,
-             quiet_mode=False):
-    quiet = ''
-    if quiet_mode:
-        quiet = '--quiet'
-    status_format = config.brute_status_format
-    socket_num = config.brute_socket_num
-    resolve_num = config.brute_resolve_num
-    cmd = f'{massdns_path} {quiet} --status-format {status_format} ' \
-          f'--processes {process_num} --socket-count {socket_num} ' \
-          f'--hashmap-size {concurrent_num} --resolvers {ns_path} ' \
-          f'--resolve-count {resolve_num} --type {query_type} ' \
-          f'--flush --output J --outfile {output_path} ' \
-          f'--error-log {log_path} {dict_path}'
-    logger.log('INFOR', f'执行命令 {cmd}')
-    subprocess.run(args=cmd, shell=True)
+def gen_records(items, records, subdomains, ip_times, wc_ips, wc_ttl):
+    qname = items.get('name')[:-1]  # 去出最右边的`.`点号
+    reason = items.get('status')
+    resolver = items.get('resolver')
+    data = items.get('data')
+    answers = data.get('answers')
+    record = dict()
+    cname = list()
+    ips = list()
+    public = list()
+    times = list()
+    ttls = list()
+    is_valid_flags = list()
+    have_a_record = False
+    for answer in answers:
+        if answer.get('type') != 'A':
+            logger.log('TRACE', f'查询{qname}返回的应答没有A记录\n{answer}')
+            continue
+        logger.log('TRACE', f'查询{qname}返回的应答具有A记录\n{answer}')
+        have_a_record = True
+        ttl = answer.get('ttl')
+        ttls.append(ttl)
+        cname.append(answer.get('name')[:-1])  # 去出最右边的`.`点号
+        ip = answer.get('data')
+        ips.append(ip)
+        public.append(utils.ip_is_public(ip))
+        num = ip_times.get(ip)
+        times.append(num)
+        isvalid, reason = is_valid_subdomain(ip, ttl, num, wc_ips, wc_ttl)
+        logger.log('TRACE', f'{ip}是否有效:{isvalid} 原因:{reason}')
+        is_valid_flags.append(isvalid)
+    if not have_a_record:
+        logger.log('TRACE', f'查询{qname}返回的所有应答都中没有A记录{answers}')
+    # 为了优化内存 只添加有A记录且通过判断的子域到记录中
+    if have_a_record and all(is_valid_flags):
+        record['resolve'] = 1
+        record['reason'] = reason
+        record['ttl'] = ttls
+        record['cname'] = cname
+        record['content'] = ips
+        record['public'] = public
+        record['times'] = times
+        record['resolver'] = resolver
+        records[qname] = record
+        subdomains.append(qname)
+    return records, subdomains
 
 
-def read_result(result_path):
-    result = list()
+def stat_ip_times(result_path):
+    logger.log('INFOR', f'正在统计IP次数')
+    times = dict()
     with open(result_path) as fd:
         for line in fd:
             line = line.strip()
             try:
-                record = json.loads(line)
+                items = json.loads(line)
             except Exception as e:
                 logger.log('ERROR', e.args)
                 logger.log('ERROR', f'解析行{line}出错跳过解析该行')
                 continue
-            result.append(record)
-    return result
+            status = items.get('status')
+            if status != 'NOERROR':
+                continue
+            data = items.get('data')
+            if 'answers' not in data:
+                continue
+            answers = data.get('answers')
+            for answer in answers:
+                if answer.get('type') == 'A':
+                    ip = answer.get('data')
+                    # 取值 如果是首次出现的IP集合 出现次数先赋值0
+                    value = times.setdefault(ip, 0)
+                    times[ip] = value + 1
+    return times
 
 
-def deal_result(result_list):
+def deal_output(output_path, ip_times, wildcard_ips, wildcard_ttl):
     logger.log('INFOR', f'正在处理解析结果')
-    records = dict()  # 用来记录域名解析数据
-    times = dict()  # 用来统计IP出现次数
-    for items in result_list:
-        record = dict()
-        qname = items.get('name')[:-1]  # 去出最右边的`.`点号
-        record['resolver'] = items.get('resolver')
-        status = items.get('status')
-        record['reason'] = status
-        records[qname] = record
-        if status != 'NOERROR':
-            record['reason'] = status
-            record['resolve'] = 0
-            record['alive'] = 0
-            records[qname] = record
-            continue
-        data = items.get('data')
-        if 'answers' not in data:
-            record['reason'] = 'NOANSWER'
-            record['resolve'] = 0
-            record['alive'] = 0
-            records[qname] = record
-            continue
-        answers = data.get('answers')
-        flag = False
-        cname = list()
-        ips = list()
-        public = list()
-        ttl = list()
-        for answer in answers:
-            if answer.get('type') == 'A':
-                flag = True
-                ttl.append(answer.get('ttl'))
-                cname.append(answer.get('name')[:-1])  # 去出最右边的`.`点号
-                ip = answer.get('data')
-                ips.append(ip)
-                public.append(utils.ip_is_public(ip))
-                record['ttl'] = ttl
-                record['cname'] = cname
-                record['content'] = ips
-                record['public'] = public
-                records[qname] = record
-                # 取值 如果是首次出现的IP集合 出现次数先赋值0
-                value = times.setdefault(ip, 0)
-                times[ip] = value + 1
-        if not flag:
-            record['reason'] = 'NOA'
-            record['resolve'] = 0
-            record['alive'] = 0
-            records[qname] = record
-    return records, times
+    records = dict()  # 用来记录所有域名解析数据
+    subdomains = list()  # 用来保存所有通过有效性检查的子域
+    with open(output_path) as fd:
+        for line in fd:
+            line = line.strip()
+            try:
+                items = json.loads(line)
+            except Exception as e:
+                logger.log('ERROR', e.args)
+                logger.log('ERROR', f'解析行{line}出错跳过解析该行')
+                continue
+            qname = items.get('name')[:-1]  # 去出最右边的`.`点号
+            status = items.get('status')
+            if status != 'NOERROR':
+                logger.log('TRACE', f'处理{line}时发现{qname}查询结果状态{status}')
+                continue
+            data = items.get('data')
+            if 'answers' not in data:
+                logger.log('TRACE', f'处理{line}时发现{qname}返回的结果无应答')
+                continue
+            records, subdomains = gen_records(items, records, subdomains,
+                                              ip_times, wildcard_ips,
+                                              wildcard_ttl)
+    return records, subdomains
 
 
-def add_times(records, ip_times):
-    for name, record in records.items():
-        times = list()
-        ips = record.get('content')
-        if not ips:
-            continue
-        for ip in ips:
-            times.append(ip_times.get(ip))
-            record['times'] = times
-        records[name] = record
-    return records
-
-
-def check_validity(records, ip_times, wildcard_ips, wildcard_ttl):
-    valid_subdomains = list()
-    for name, record in records.items():
-        if record.get('resolve') is None:
-            ips = record['content']
-            ttl = record['ttl']
-            status, reason = is_valid_subdomain(ips, ttl, ip_times,
-                                                wildcard_ips, wildcard_ttl)
-            record['resolve'], record['reason'] = status, reason
-        records[name] = record
-        # 在打了有效性标签后 暂且把除无效子域的子域都认为是有效子域
-        if record.get('resolve') != 0:
-            valid_subdomains.append(name)
-    return records, valid_subdomains
-
-
-def check_by_compare(ips, ttl, wildcard_ips, wildcard_ttl):
+def check_by_compare(ip, ttl, wc_ips, wc_ttl):
     """
     通过与泛解析返回的IP集合和返回的TTL值进行对比判断发现的子域是否是泛解析子域
 
-    :param set ips: 子域A记录查询出的IP集合
+    :param set ip: 子域A记录查询出的IP
     :param int ttl: 子域A记录查询出的TTL
-    :param set wildcard_ips: 泛解析的IP集合
-    :param int wildcard_ttl: 泛解析的TTL
+    :param set wc_ips: 泛解析的IP集合
+    :param int wc_ttl: 泛解析的TTL
     :return: 判断结果
     """
     # 参考：http://sh3ll.me/archives/201704041222.txt
-    if not ips.intersection(wildcard_ips):
-        return False  # 子域IP集合与泛解析IP集合无任何交集则不是泛解析
-    if ttl != wildcard_ttl and ttl % 60 == 0 and wildcard_ttl % 60 == 0:
+    if ip not in wc_ips:
+        return False  # 子域IP不在泛解析IP集合则不是泛解析
+    if ttl != wc_ttl and ttl % 60 == 0 and wc_ttl % 60 == 0:
         return False
     return True
 
 
-def check_ip_times(ips, times):
+def check_ip_times(times):
     """
     根据ip出现次数判断是否为泛解析
 
-    :param set ips: 子域IP集合
-    :param times: 子域IP出现次数统计字典
+    :param times: 子域IP出现次数
     :return: 判断结果
     """
-    for ip in ips:
-        num = times.get(ip)
-        if num > config.ip_appear_maximum:
-            # 解析得到IPS集合有任意IP出现次数大于指定值都标记为非法(泛解析)子域
-            return True
+    if times > config.ip_appear_maximum:
+        return True
     return False
 
 
-def is_valid_subdomain(ips, ttl, times, wildcard_ips, wildcard_ttl):
+def is_valid_subdomain(ip, ttl, times, wc_ips, wc_ttl):
     ip_blacklist = config.brute_ip_blacklist
-    ips = set(ips)
-    if ips.intersection(ip_blacklist):  # 解析ip与黑名单ip有交集则标记为非法子域
+    if ip in ip_blacklist:  # 解析ip在黑名单ip则为非法子域
         return 0, 'IP blacklist'
-    if len(set(ttl)) == 1:  # 只有一个相同TTL才进行对比
-        ttl = ttl[0]
-        if all([wildcard_ttl, wildcard_ttl]):  # 有泛解析记录才进行对比
-            if check_by_compare(ips, ttl, wildcard_ips, wildcard_ttl):
-                return 0, 'IP wildcard '
-    if check_ip_times(ips, times):
+    if all([wc_ips, wc_ttl]):  # 有泛解析记录才进行对比
+        if check_by_compare(ip, ttl, wc_ips, wc_ttl):
+            return 0, 'IP wildcard'
+    if check_ip_times(times):
         return 0, 'IP exceeded'
-    return 1, None
+    return 1, 'OK'
 
 
-def save_brute_dict(path, data):
-    if not utils.save_data(path, data):
+def save_brute_dict(dict_path, dict_set):
+    dict_data = '\n'.join(dict_set)
+    if not utils.save_data(dict_path, dict_data):
         logger.log('FATAL', '保存生成的字典出错')
         exit(1)
 
@@ -535,56 +544,51 @@ class Brute(Module):
         result_dir = config.result_save_dir
         temp_dir = result_dir.joinpath('temp')
         utils.check_dir(temp_dir)
-        massdns_path = get_massdns_path(massdns_dir)
+        massdns_path = utils.get_massdns_path(massdns_dir)
         timestring = utils.get_timestring()
-        self.enable_wildcard = detect_wildcard(domain)
 
         wildcard_ips = list()  # 泛解析IP列表
         wildcard_ttl = int()  # 泛解析TTL整型值
-        ns_ip_list = list()  # DNS权威名称服务器对应A记录列表
+        ns_list = query_domain_ns(self.domain)
+        ns_ip_list = query_domain_ns_a(ns_list)  # DNS权威名称服务器对应A记录列表
+        self.enable_wildcard = detect_wildcard(domain, ns_ip_list)
+
         if self.enable_wildcard:
-            ns_list = query_domain_ns(self.domain)
-            ns_ip_list = query_domain_ns_a(ns_list)
-            wildcard_ips, wildcard_ttl = get_wildcard_record(domain, ns_ip_list)
+            wildcard_ips, wildcard_ttl = collect_wildcard_record(domain,
+                                                                 ns_ip_list)
         ns_path = get_nameservers_path(self.enable_wildcard, ns_ip_list)
 
         dict_set = self.gen_brute_dict(domain)
-        self.subdomains = dict_set
-        dict_data = '\n'.join(dict_set)
+        dict_len = len(dict_set)
+
         dict_name = f'generated_subdomains_{domain}_{timestring}.txt'
         dict_path = temp_dir.joinpath(dict_name)
-        save_brute_dict(dict_path, dict_data)
+        save_brute_dict(dict_path, dict_set)
+        del dict_set
+        gc.collect()
 
         output_name = f'resolved_result_{domain}_{timestring}.json'
         output_path = temp_dir.joinpath(output_name)
-
         log_path = result_dir.joinpath('massdns.log')
         check_dict()
 
-        logger.log('INFOR', f'开始执行massdns')
-        do_brute(massdns_path, dict_path, ns_path, output_path, log_path,
-                 process_num=self.process_num,
-                 concurrent_num=self.concurrent_num)
-        logger.log('INFOR', f'结束执行massdns')
+        utils.call_massdns(massdns_path, dict_path, ns_path, output_path,
+                           log_path, process_num=self.process_num,
+                           concurrent_num=self.concurrent_num)
 
-        result_data = read_result(output_path)
+        ip_times = stat_ip_times(output_path)
+        self.records, self.subdomains = deal_output(output_path, ip_times,
+                                                    wildcard_ips, wildcard_ttl)
         delete_file(dict_path, output_path)
-        resolved_records, ip_times = deal_result(result_data)
-        added_records = add_times(resolved_records, ip_times)
-        checked_records, valid_subdomains = check_validity(added_records,
-                                                           ip_times,
-                                                           wildcard_ips,
-                                                           wildcard_ttl)
-        self.records = checked_records
         end = time.time()
         self.elapse = round(end - start, 1)
         logger.log('INFOR', f'{self.source}模块耗时{self.elapse}秒'
-                            f'发现{domain}的子域{len(valid_subdomains)}个')
+                            f'发现{domain}的子域{len(self.subdomains)}个')
         logger.log('DEBUG', f'{self.source}模块发现{domain}的子域:\n'
-                            f'{valid_subdomains}')
-        self.gen_result(brute=len(self.subdomains), valid=len(valid_subdomains))
+                            f'{self.subdomains}')
+        self.gen_result(brute=dict_len, valid=len(self.subdomains))
         self.save_db()
-        return valid_subdomains
+        return self.subdomains
 
     def run(self):
         logger.log('INFOR', f'开始执行{self.source}模块')
@@ -627,7 +631,3 @@ class Brute(Module):
 
 if __name__ == '__main__':
     fire.Fire(Brute)
-    # domain = 'example.com'
-    # result = queue.Queue()
-    # brute = AIOBrute(domain)
-    # brute.run(result)
