@@ -12,7 +12,6 @@ cd OneForAll/
 python -m pip install -U pip setuptools wheel -i https://mirrors.aliyun.com/pypi/simple/
 pip3 install pipenv -i https://mirrors.aliyun.com/pypi/simple/
 pipenv install --python 3.8
-cd oneforall
 pipenv run python oneforall.py --help
 ```
 
@@ -21,7 +20,6 @@ pipenv run python oneforall.py --help
 cd OneForAll/
 python -m pip install -U pip setuptools wheel -i https://mirrors.aliyun.com/pypi/simple/
 pip3 install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
-cd oneforall/
 python oneforall.py --help
 ```
 ## Linux系统
@@ -49,7 +47,6 @@ cd OneForAll/
 sudo python3.8 -m pip install -U pip setuptools wheel -i https://mirrors.aliyun.com/pypi/simple/
 sudo apt install pipenv
 sudo pipenv install --python 3.8
-cd oneforall
 pipenv run python3 oneforall.py --help
 ```
 
@@ -58,8 +55,8 @@ pipenv run python3 oneforall.py --help
 cd OneForAll/
 sudo apt install python3-pip
 sudo python3.8 -m pip install -U pip setuptools wheel -i https://mirrors.aliyun.com/pypi/simple/
+sudo pip3 install uvloop -i https://mirrors.aliyun.com/pypi/simple/
 sudo pip3 install --ignore-installed -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
-cd oneforall/
 python3.8 oneforall.py --help
 ```
 ## Darwin系统
@@ -70,7 +67,6 @@ cd OneForAll/
 python3 -m pip install -U pip setuptools wheel -i https://mirrors.aliyun.com/pypi/simple/
 pip3 install pipenv -i https://mirrors.aliyun.com/pypi/simple/
 pipenv install --python 3.8
-cd oneforall
 pipenv run python3 oneforall.py --help
 ```
 
@@ -79,6 +75,6 @@ pipenv run python3 oneforall.py --help
 cd OneForAll/
 python3 -m pip install -U pip setuptools wheel -i https://mirrors.aliyun.com/pypi/simple/
 pip3 install -r requirements.txt -i https://mirrors.aliyun.com/pypi/simple/
-cd oneforall/
+pip3 install uvloop -i https://mirrors.aliyun.com/pypi/simple/
 python3 oneforall.py --help
 ```
