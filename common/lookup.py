@@ -1,4 +1,4 @@
-from .module import Module
+from common.module import Module
 from common import utils
 
 
@@ -20,7 +20,7 @@ class Lookup(Module):
             return None
         for item in answer:
             record = item.to_text()
-            subdomains = utils.match_subdomain(self.domain, record)
+            subdomains = self.match_subdomains(self.domain, record)
             self.subdomains = self.subdomains.union(subdomains)
             self.gen_record(subdomains, record)
         return self.subdomains

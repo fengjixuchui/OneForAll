@@ -32,27 +32,6 @@ user_agents = [
     'Mozilla/5.0 (X11; Linux i586; rv:31.0) Gecko/20100101 Firefox/68.0']
 
 
-def match_subdomain(domain, text, distinct=True):
-    """
-    Use regexp to match subdomains in text
-
-    :param  str domain: domain
-    :param  str text: response text
-    :param  bool distinct: deduplicate results
-    :return set/list: match result
-    """
-    regexp = r'(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.){0,}' \
-             + domain.replace('.', r'\.')
-    result = re.findall(regexp, text, re.I)
-    if not result:
-        return set()
-    deal = map(lambda s: s.lower(), result)
-    if distinct:
-        return set(deal)
-    else:
-        return list(deal)
-
-
 def gen_random_ip():
     """
     Generate random decimal IP string
@@ -120,7 +99,7 @@ def get_domains(target):
     :return list: domain list
     """
     domains = list()
-    logger.log('DEBUG', f'Getting domains...')
+    logger.log('DEBUG', f'Getting domains')
     if isinstance(target, (set, tuple)):
         domains = list(target)
     elif isinstance(target, list):
@@ -192,7 +171,7 @@ def check_path(path, name, format):
         logger.log('ALERT', f'{parent_dir} does not exist, directory will be created')
         parent_dir.mkdir(parents=True, exist_ok=True)
     if path.exists():
-        logger.log('ALERT', f'{path} exists, file will be overwritten')
+        logger.log('ALERT', f'The {path} exists and will be overwritten')
     return path
 
 
@@ -310,7 +289,7 @@ def check_value(values):
 
 def export_all_results(path, name, format, datas):
     path = check_path(path, name, format)
-    logger.log('ALERT', f'Subdomain result for all domains: {path}')
+    logger.log('ALERT', f'The subdomain result for all main domains: {path}')
     row_list = list()
     for row in datas:
         if 'header' in row:
@@ -329,7 +308,7 @@ def export_all_results(path, name, format, datas):
 
 def export_all_subdomains(alive, path, name, datas):
     path = check_path(path, name, 'txt')
-    logger.log('ALERT', f'Txt subdomain result for all main domains {path}')
+    logger.log('ALERT', f'The txt subdomain result for all main domains {path}')
     subdomains = set()
     for row in datas:
         subdomain = row.get('subdomain')
@@ -508,7 +487,7 @@ def delete_file(*paths):
 
 @tenacity.retry(stop=tenacity.stop_after_attempt(3))
 def check_net():
-    logger.log('INFOR', 'Checking Internet environment...')
+    logger.log('INFOR', 'Checking Internet environment')
     urls = ['http://www.example.com', 'http://www.baidu.com',
             'http://www.bing.com', 'http://www.taobao.com',
             'http://www.linkedin.com', 'http://www.msn.com',
@@ -519,18 +498,18 @@ def check_net():
         rsp = requests.get(url)
     except Exception as e:
         logger.log('ERROR', e.args)
-        logger.log('ALERT', 'Can not access Internet, retrying...')
+        logger.log('ALERT', 'Can not access Internet, retrying')
         raise tenacity.TryAgain
     if rsp.status_code != 200:
         logger.log('ALERT', f'{rsp.request.method} {rsp.request.url} '
         f'{rsp.status_code} {rsp.reason}')
-        logger.log('ALERT', 'Can not access Internet normally, retrying...')
+        logger.log('ALERT', 'Can not access Internet normally, retrying')
         raise tenacity.TryAgain
     logger.log('INFOR', 'Access to Internet OK')
 
 
 def check_pre():
-    logger.log('INFOR', 'Checking dependent environment...')
+    logger.log('INFOR', 'Checking dependent environment')
     system = platform.system()
     implementation = platform.python_implementation()
     version = platform.python_version()
@@ -552,7 +531,7 @@ def check_pre():
 
 
 def check_env():
-    logger.log('INFOR', 'Checking the environment...')
+    logger.log('INFOR', 'Checking the environment')
     try:
         check_net()
     except Exception as e:
@@ -569,7 +548,7 @@ def get_maindomain(domain):
 def call_massdns(massdns_path, dict_path, ns_path, output_path, log_path,
                  query_type='A', process_num=1, concurrent_num=10000,
                  quiet_mode=False):
-    logger.log('INFOR', f'Start running massdns')
+    logger.log('DEBUG', f'Start running massdns')
     quiet = ''
     if quiet_mode:
         quiet = '--quiet'
@@ -582,9 +561,9 @@ def call_massdns(massdns_path, dict_path, ns_path, output_path, log_path,
           f'--resolve-count {resolve_num} --type {query_type} ' \
           f'--flush --output J --outfile {output_path} ' \
           f'--root --error-log {log_path} {dict_path}'
-    logger.log('INFOR', f'Run command {cmd}')
+    logger.log('DEBUG', f'Run command {cmd}')
     subprocess.run(args=cmd, shell=True)
-    logger.log('INFOR', f'Finished massdns')
+    logger.log('DEBUG', f'Finished massdns')
 
 
 def get_massdns_path(massdns_dir):

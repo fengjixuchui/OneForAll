@@ -11,8 +11,8 @@ import time
 import requests
 from config.log import logger
 from config import setting
-from . import utils
-from .domain import Domain
+from common import utils
+from common.domain import Domain
 from common.database import Database
 
 lock = threading.Lock()
@@ -45,7 +45,7 @@ class Module(object):
         :return bool: check result
         """
         if not all(apis):
-            logger.log('ALERT', f'{self.source} module is not configured, skip')
+            logger.log('DEBUG', f'{self.source} module is not configured')
             return False
         return True
 
@@ -62,10 +62,10 @@ class Module(object):
         self.end = time.time()
         self.elapse = round(self.end - self.start, 1)
         logger.log('DEBUG', f'Finished {self.source} module to collect {self.domain}\'s subdomains')
-        logger.log('INFOR', f'The {self.source} module took {self.elapse} seconds, '
+        logger.log('INFOR', f'The {self.source} module took {self.elapse} seconds '
                             f'found {len(self.subdomains)} subdomains')
         logger.log('DEBUG', f'{self.source} module found subdomains of {self.domain}\n'
-        f'{self.subdomains}')
+                            f'{self.subdomains}')
 
     def head(self, url, params=None, check=True, **kwargs):
         """
@@ -128,7 +128,7 @@ class Module(object):
         Custom post request
 
         :param str  url: request url
-        :param dict params: request parameters
+        :param dict data: request parameters
         :param bool check: check response
         :param kwargs: other params
         :return: requests's response object
@@ -184,24 +184,22 @@ class Module(object):
             return self.proxy
 
     @staticmethod
-    def match(domain, html, distinct=True):
+    def match_subdomains(domain, text, distinct=True):
         """
         Use regexp to match subdomains
 
         :param  str domain: domain
-        :param  str html: response html text
+        :param  str text: text
         :param  bool distinct: deduplicate results or not (default True)
         :return set/list: result set or list
         """
         logger.log('TRACE', f'Use regexp to match subdomains in the response body')
-        regexp = r'(?:\>|\"|\'|\=|\,)(?:http\:\/\/|https\:\/\/)?' \
-                 r'(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.){0,}' \
+        regexp = r'(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.){0,}' \
                  + domain.replace('.', r'\.')
-        result = re.findall(regexp, html, re.I)
+        result = re.findall(regexp, text, re.I)
         if not result:
             return set()
-        regexp = r'(?:http://|https://)'
-        deal = map(lambda s: re.sub(regexp, '', s[1:].lower()), result)
+        deal = map(lambda s: s.lower(), result)
         if distinct:
             return set(deal)
         else:
@@ -254,7 +252,7 @@ class Module(object):
         """
         Generate results
         """
-        logger.log('DEBUG', f'Generating final results...')
+        logger.log('DEBUG', f'Generating final results')
         if not len(self.subdomains):  # 该模块一个子域都没有发现的情况
             logger.log('DEBUG', f'{self.source} module result is empty')
             result = {'id': None,
@@ -340,14 +338,12 @@ class Module(object):
                           'elapse': self.elapse,
                           'find': find,
                           'brute': brute,
-                          'valid': valid,
-                          }
+                          'valid': valid}
                 self.results.append(result)
 
     def save_db(self):
         """
         Save module results into the database
-
         """
         logger.log('DEBUG', f'Saving results to database')
         lock.acquire()
