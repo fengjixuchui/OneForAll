@@ -1,11 +1,11 @@
-    # OneForAll
+# OneForAll
 
 [![Build Status](https://travis-ci.org/shmilylty/OneForAll.svg?branch=master)](https://travis-ci.org/shmilylty/OneForAll)
 [![codecov](https://codecov.io/gh/shmilylty/OneForAll/branch/master/graph/badge.svg)](https://codecov.io/gh/shmilylty/OneForAll)
 [![Maintainability](https://api.codeclimate.com/v1/badges/1287668a6b4c72af683e/maintainability)](https://codeclimate.com/github/shmilylty/OneForAll/maintainability)
 [![License](https://img.shields.io/github/license/shmilylty/OneForAll)](https://github.com/shmilylty/OneForAll/tree/master/LICENSE)
 [![python](https://img.shields.io/badge/python-3.8-blue)](https://github.com/shmilylty/OneForAll/tree/master/)
-[![python](https://img.shields.io/badge/release-v0.2.0-brightgreen)](https://github.com/shmilylty/OneForAll/releases)
+[![python](https://img.shields.io/badge/release-v0.3.0-brightgreen)](https://github.com/shmilylty/OneForAll/releases)
 
 👊**OneForAll is a powerful subdomain integration tool**  📝[中文文档](https://github.com/shmilylty/OneForAll/tree/master/README.md)
 
@@ -160,7 +160,7 @@ The OneForAll command line interface is based on [Fire](https://github.com/googl
 
 [oneforall.py](https://github.com/shmilylty/OneForAll/tree/master/oneforall.py) is the program main entrence, and oneforall.py can call [brute.py](https://github.com/shmilylty/OneForAll/tree/master/brute.py), [takerover.py](https://github.com/shmilylty/OneForAll/tree/master/takerover.py), [dbexport.py ](https://github.com/shmilylty/OneForAll/tree/master/dbexport.py) and other modules. But you can also use these modules separately, if you want, please refer to the [usage help](https://github.com/shmilylty/OneForAll/tree/master/docs/en-us/usage_help.md).
 
-❗ Note: When you encounter some problems or doubts during use, please search answers on [issues](https://github.com/shmilylty/OneForAll/issues) first. You can also read [Q&troubleshooting.md](https://github.com/shmilylty/OneForAll/tree/master/docs/Q&troubleshooting.md).
+❗ Note: When you encounter some problems or doubts during use, please search answers on [issues](https://github.com/shmilylty/OneForAll/issues) first. You can also read [troubleshooting.md](https://github.com/shmilylty/OneForAll/tree/master/docs/troubleshooting.md).
 
 **OneForAll help summary page**
 
