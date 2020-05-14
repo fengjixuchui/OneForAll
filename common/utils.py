@@ -2,6 +2,7 @@ import os
 import re
 import sys
 import time
+import string
 import random
 import platform
 import subprocess
@@ -51,7 +52,7 @@ def gen_fake_header():
     headers = {
         'Accept': 'text/html,application/xhtml+xml,'
                   'application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate, br',
+        'Accept-Encoding': 'gzip, deflate',
         'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
         'Cache-Control': 'max-age=0',
         'Connection': 'close',
@@ -230,7 +231,7 @@ def check_response(method, resp):
     if resp.status_code == 200 and resp.content:
         return True
     logger.log('ALERT', f'{method} {resp.url} {resp.status_code} - '
-    f'{resp.reason} {len(resp.content)}')
+                        f'{resp.reason} {len(resp.content)}')
     content_type = resp.headers.get('Content-Type')
     if content_type and 'json' in content_type and resp.content:
         try:
@@ -586,3 +587,11 @@ def get_massdns_path(massdns_dir):
         logger.log('INFOR', 'Please try to compile massdns yourself and specify the path in the configuration')
         exit(0)
     return path
+
+
+def is_subname(name):
+    chars = string.ascii_lowercase + string.digits + '.-'
+    for char in name:
+        if char not in chars:
+            return False
+    return True
