@@ -15,6 +15,7 @@ result_save_dir = relative_directory.joinpath('results')  # 结果保存目录
 
 
 # OneForAll入口参数设置
+enable_check_version = True  # 开启最新版本检查
 enable_dns_resolve = True  # 使用DNS解析子域(默认True)
 enable_http_request = True  # 使用HTTP请求子域(默认True)
 enable_takeover_check = False  # 开启子域接管风险检查(默认False)
@@ -143,12 +144,12 @@ aiohttp_proxy = None  # proxy="http://user:pass@some.proxy.com"
 allow_redirects = True  # 允许请求跳转
 fake_header = True  # 使用伪造请求头
 # 为了保证请求质量 请谨慎更改以下设置
-# request_method只能是HEAD或GET,HEAD请求方法更快，但是不能获取响应体并提取从中提取
+# request_method只能是HEAD或GET,HEAD请求方法更快，但是不能获取响应体并提取从中title及banner
 request_method = 'GET'  # 使用请求方法，默认GET
-sockread_timeout = 10  # 每个请求socket读取超时时间，默认5秒
-sockconn_timeout = 10  # 每个请求socket连接超时时间，默认5秒
+sockread_timeout = 6  # 每个请求socket读取超时时间，默认6秒
+sockconn_timeout = 3  # 每个请求socket连接超时时间，默认3秒
 # 限制同一时间打开的连接总数
-limit_open_conn = 100  # 默认100
+limit_open_conn = 800  # 默认800
 # 限制同一时间在同一个端点((host, port, is_ssl) 3者都一样的情况)打开的连接数
 limit_per_host = 10  # 0表示不限制,默认10
 
