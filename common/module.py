@@ -254,7 +254,7 @@ class Module(object):
         path.mkdir(parents=True, exist_ok=True)
         name = self.source + '.json'
         path = path.joinpath(name)
-        with open(path, mode='w', encoding='utf-8', errors='ignore') as file:
+        with open(path, mode='w', errors='ignore') as file:
             result = {'domain': self.domain,
                       'name': self.module,
                       'source': self.source,
@@ -302,6 +302,10 @@ class Module(object):
                       'response': None,
                       'times': None,
                       'ttl': None,
+                      'cidr': None,
+                      'asn': None,
+                      'ip2region': None,
+                      'ip2location': None,
                       'resolver': None,
                       'module': self.module,
                       'source': self.source,
@@ -331,6 +335,10 @@ class Module(object):
                 times = record.get('times')
                 ttl = record.get('ttl')
                 public = record.get('public')
+                cidr = record.get('cidr')
+                asn = record.get('asn')
+                ip2region = record.get('ip2region')
+                ip2location = record.get('ip2location')
                 if isinstance(cname, list):
                     cname = ','.join(cname)
                     content = ','.join(content)
@@ -358,6 +366,10 @@ class Module(object):
                           'response': None,
                           'times': times,
                           'ttl': ttl,
+                          'cidr': cidr,
+                          'asn': asn,
+                          'ip2region': ip2region,
+                          'ip2location': ip2location,
                           'resolver': resolver,
                           'module': self.module,
                           'source': self.source,

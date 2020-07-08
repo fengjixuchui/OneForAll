@@ -226,8 +226,7 @@ def save_data(path, data):
     :return: 保存成功与否
     """
     try:
-        with open(path, 'w', encoding="utf-8",
-                  errors='ignore', newline='') as file:
+        with open(path, 'w', errors='ignore', newline='') as file:
             file.write(data)
             return True
     except TypeError:
@@ -638,3 +637,12 @@ def is_subname(name):
         if char not in chars:
             return False
     return True
+
+
+def ip_to_int(ip):
+    try:
+        ipv4 = IPv4Address(ip)
+    except Exception as e:
+        logger.log('ERROR', e.args)
+        return None
+    return int(ipv4)

@@ -5,6 +5,9 @@ from config.log import logger
 from config import setting
 from common import utils
 from common.database import Database
+from common.ipasn import IPAsnInfo
+from common.ipgeo import IpGeoInfo
+from common.ipreg import IpRegInfo
 
 
 def filter_subdomain(data):
@@ -71,6 +74,10 @@ def save_subdomains(save_path, subdomain_list):
 def deal_output(output_path):
     logger.log('INFOR', f'Processing resolved results')
     records = dict()  # 用来记录所有域名解析数据
+    ip_asn = IPAsnInfo()
+    ip_geo = IpGeoInfo
+    db_path = setting.data_storage_dir.joinpath('ip2region.db')
+    ip_reg = IpRegInfo(db_path)
     with open(output_path) as fd:
         for line in fd:
             line = line.strip()
@@ -102,6 +109,10 @@ def deal_output(output_path):
             ips = list()
             public = list()
             ttls = list()
+            cidrs = list()
+            asns = list()
+            locs = list()
+            regs = list()
             answers = data.get('answers')
             for answer in answers:
                 if answer.get('type') == 'A':
@@ -113,12 +124,25 @@ def deal_output(output_path):
                     ttls.append(str(ttl))
                     is_public = utils.ip_is_public(ip)
                     public.append(str(is_public))
+                    asn_info = ip_asn.find(ip)
+                    cidrs.append(asn_info.get('cidr'))
+                    asns.append(asn_info.get('asn'))
+                    loc = f'{ip_geo.get_country_long(ip)} ' \
+                          f'{ip_geo.get_region(ip)} ' \
+                          f'{ip_geo.get_city(ip)}'
+                    locs.append(loc)
+                    reg = ip_reg.memory_search(ip).get('region').decode('utf-8')
+                    regs.append(reg)
                     record['resolve'] = 1
                     record['reason'] = status
                     record['cname'] = ','.join(cname)
                     record['content'] = ','.join(ips)
                     record['public'] = ','.join(public)
                     record['ttl'] = ','.join(ttls)
+                    record['cidr'] = ','.join(cidrs)
+                    record['asn'] = ','.join(asns)
+                    record['ip2location'] = ','.join(locs)
+                    record['ip2region'] = ','.join(regs)
                     records[qname] = record
             if not flag:
                 record['alive'] = 0
