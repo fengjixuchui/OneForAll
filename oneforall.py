@@ -17,6 +17,8 @@ from brute import Brute
 from common import utils, resolve, request
 from common.database import Database
 from modules.collect import Collect
+from modules.finder import Finder
+from modules import iscdn, banner
 from config import setting
 from config.log import logger
 from takeover import Takeover
@@ -31,7 +33,7 @@ end = '\033[0m'
 version = 'v0.3.0'
 message = white + '{' + red + version + ' #dev' + white + '}'
 
-banner = f"""
+oneforall_banner = f"""
 OneForAll is a powerful subdomain integration tool{yellow}
              ___             _ _ 
  ___ ___ ___|  _|___ ___ ___| | | {message}{green}
@@ -209,6 +211,22 @@ class OneForAll(object):
         # Save HTTP request result
         request.save_db(self.domain, self.data)
 
+        # Finder module
+        if setting.enable_finder_module:
+            finder = Finder()
+            self.data = finder.run(self.domain, self.data, self.port)
+
+        # check cdn module
+        if setting.enable_cdn_check:
+            self.data = iscdn.check_cdn(self.data)
+            iscdn.save_db(self.domain, self.data)
+
+        # Identify banner module
+        if setting.enable_banner_identify:
+            identifier = banner.Identify()
+            self.data = identifier.run(self.data)
+            banner.save_db(self.domain, self.data)
+
         # Add the final result list to the total data list
         self.datas.extend(self.data)
 
@@ -229,7 +247,7 @@ class OneForAll(object):
         :return: All subdomain results
         :rtype: list
         """
-        print(banner)
+        print(oneforall_banner)
         dt = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f'[*] Starting OneForAll @ {dt}\n')
         utils.check_env()
@@ -253,7 +271,7 @@ class OneForAll(object):
         """
         Print version information and exit
         """
-        print(banner)
+        print(oneforall_banner)
         exit(0)
 
     @staticmethod

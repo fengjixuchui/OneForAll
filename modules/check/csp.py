@@ -3,7 +3,6 @@ Collect subdomains from ContentSecurityPolicy
 """
 import requests
 
-from common import utils
 from common.module import Module
 from config.log import logger
 
@@ -45,7 +44,7 @@ class CheckCSP(Module):
         """
         if not self.csp_header:
             self.csp_header = self.grab_header()
-        csp = self.header.get('Content-Security-Policy')
+        csp = self.csp_header.get('Content-Security-Policy')
         if not self.csp_header:
             logger.log('DEBUG', f'Failed to get header of {self.domain} domain')
             return
@@ -79,4 +78,4 @@ def do(domain, header=None):  # 统一入口名字 方便多线程调用
 
 if __name__ == '__main__':
     resp = requests.get('https://content-security-policy.com/')
-    do('google-analytics.com', resp.headers)
+    do('google-analytics.com', dict(resp.headers))

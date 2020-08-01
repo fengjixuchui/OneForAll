@@ -4,7 +4,6 @@ Module base class
 """
 
 import json
-import re
 import threading
 import time
 
@@ -212,39 +211,7 @@ class Module(object):
             return self.proxy
 
     def match_subdomains(self, html, distinct=True, fuzzy=True):
-        """
-        Use regexp to match subdomains
-
-        :param  str html: response html text
-        :param  bool distinct: deduplicate results or not (default True)
-        :param  bool fuzzy: fuzzy match subdomain or not (default True)
-        :return set/list: result set or list
-        """
-        logger.log('TRACE', f'Use regexp to match subdomains in the response body')
-        if fuzzy:
-            regexp = r'(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.){0,}' \
-                     + self.domain.replace('.', r'\.')
-            result = re.findall(regexp, html, re.I)
-            if not result:
-                return set()
-            deal = map(lambda s: s.lower(), result)
-            if distinct:
-                return set(deal)
-            else:
-                return list(deal)
-        else:
-            regexp = r'(?:\>|\"|\'|\=|\,)(?:http\:\/\/|https\:\/\/)?' \
-                     r'(?:[a-z0-9](?:[a-z0-9\-]{0,61}[a-z0-9])?\.){0,}' \
-                     + self.domain.replace('.', r'\.')
-            result = re.findall(regexp, html, re.I)
-        if not result:
-            return set()
-        regexp = r'(?:http://|https://)'
-        deal = map(lambda s: re.sub(regexp, '', s[1:].lower()), result)
-        if distinct:
-            return set(deal)
-        else:
-            return list(deal)
+        return utils.match_subdomains(self.domain, html, distinct, fuzzy)
 
     @staticmethod
     def get_maindomain(domain):
@@ -305,11 +272,12 @@ class Module(object):
                       'new': None,
                       'url': None,
                       'subdomain': None,
+                      'port': None,
                       'level': None,
                       'cname': None,
                       'content': None,
                       'public': None,
-                      'port': None,
+                      'cdn': None,
                       'status': None,
                       'reason': None,
                       'title': None,
@@ -320,6 +288,7 @@ class Module(object):
                       'ttl': None,
                       'cidr': None,
                       'asn': None,
+                      'org': None,
                       'ip2region': None,
                       'ip2location': None,
                       'resolver': None,
@@ -351,8 +320,10 @@ class Module(object):
                 times = record.get('times')
                 ttl = record.get('ttl')
                 public = record.get('public')
+                cdn = record.get('cdn')
                 cidr = record.get('cidr')
                 asn = record.get('asn')
+                org = record.get('org')
                 ip2region = record.get('ip2region')
                 ip2location = record.get('ip2location')
                 if isinstance(cname, list):
@@ -369,11 +340,12 @@ class Module(object):
                           'new': None,
                           'url': url,
                           'subdomain': subdomain,
+                          'port': 80,
                           'level': level,
                           'cname': cname,
                           'content': content,
                           'public': public,
-                          'port': 80,
+                          'cdn': cdn,
                           'status': None,
                           'reason': reason,
                           'title': None,
@@ -384,6 +356,7 @@ class Module(object):
                           'ttl': ttl,
                           'cidr': cidr,
                           'asn': asn,
+                          'org': org,
                           'ip2region': ip2region,
                           'ip2location': ip2location,
                           'resolver': resolver,

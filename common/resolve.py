@@ -50,17 +50,13 @@ def update_data(data, records):
 
 def save_db(name, data):
     """
-    保存解析结果到数据库
+    Save resolved results to database
 
-    :param str name: 保存表名
-    :param list data: 待保存的数据
+    :param str  name: table name
+    :param list data: data to be saved
     """
     logger.log('INFOR', f'Saving resolved results')
-    db = Database()
-    db.drop_table(name)
-    db.create_table(name)
-    db.save_db(name, data, 'resolve')
-    db.close()
+    utils.save_db(name, data, 'resolve')
 
 
 def save_subdomains(save_path, subdomain_list):
@@ -111,6 +107,7 @@ def deal_output(output_path):
             ttls = list()
             cidrs = list()
             asns = list()
+            orgs = list()
             locs = list()
             regs = list()
             answers = data.get('answers')
@@ -127,6 +124,7 @@ def deal_output(output_path):
                     asn_info = ip_asn.find(ip)
                     cidrs.append(asn_info.get('cidr'))
                     asns.append(asn_info.get('asn'))
+                    orgs.append(asn_info.get('org'))
                     loc = f'{ip_geo.get_country_long(ip)} ' \
                           f'{ip_geo.get_region(ip)} ' \
                           f'{ip_geo.get_city(ip)}'
@@ -141,6 +139,7 @@ def deal_output(output_path):
                     record['ttl'] = ','.join(ttls)
                     record['cidr'] = ','.join(cidrs)
                     record['asn'] = ','.join(asns)
+                    record['org'] = ','.join(orgs)
                     record['ip2location'] = ','.join(locs)
                     record['ip2region'] = ','.join(regs)
                     records[qname] = record
@@ -161,7 +160,7 @@ def run_resolve(domain, data):
     :return: 解析得到的结果列表
     :rtype: list
     """
-    logger.log('INFOR', f'Start resolve subdomains of {domain}')
+    logger.log('INFOR', f'Start resolving subdomains of {domain}')
     subdomains = filter_subdomain(data)
     if not subdomains:
         return data
