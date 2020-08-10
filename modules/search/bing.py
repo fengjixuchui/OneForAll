@@ -39,11 +39,9 @@ class Bing(Search):
             subdomains = self.match_subdomains(resp.text, fuzzy=False)
             if not subdomains:  # 搜索没有发现子域名则停止搜索
                 break
-            if not full_search:
-                # 搜索中发现搜索出的结果有完全重复的结果就停止搜索
-                if subdomains.issubset(self.subdomains):
-                    break
-            # 合并搜索子域名搜索结果
+            if not full_search and subdomains.issubset(self.subdomains):
+                # 在全搜索过程中发现搜索出的结果有完全重复的结果就停止搜索
+                break
             self.subdomains = self.subdomains.union(subdomains)
             # 搜索页面没有出现下一页时停止搜索
             if '<div class="sw_next">' not in resp.text:
@@ -78,7 +76,7 @@ class Bing(Search):
         self.save_db()
 
 
-def do(domain):  # 统一入口名字 方便多线程调用
+def run(domain):
     """
     类统一调用入口
 
@@ -89,4 +87,4 @@ def do(domain):  # 统一入口名字 方便多线程调用
 
 
 if __name__ == '__main__':
-    do('example.com')
+    run('example.com')

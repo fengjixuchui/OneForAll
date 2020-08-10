@@ -23,9 +23,7 @@ class ShodanAPI(Search):
             params = {'key': self.key, 'page': page, 'query': query,
                       'minify': True, 'facets': {'hostnames'}}
             resp = self.get(self.addr, params)
-            if not resp:
-                return
-            subdomains = self.match_subdomains(resp.text)
+            subdomains = self.match_subdomains(resp)
             if not subdomains:  # 搜索没有发现子域名则停止搜索
                 break
             if subdomains:
@@ -46,7 +44,7 @@ class ShodanAPI(Search):
         self.save_db()
 
 
-def do(domain):  # 统一入口名字 方便多线程调用
+def run(domain):
     """
     类统一调用入口
 
@@ -57,4 +55,4 @@ def do(domain):  # 统一入口名字 方便多线程调用
 
 
 if __name__ == '__main__':
-    do('example.com')
+    run('example.com')

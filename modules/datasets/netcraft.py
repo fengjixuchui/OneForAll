@@ -47,12 +47,9 @@ class NetCraft(Query):
                       'host': '.' + self.domain,
                       'from': self.page_num}
             resp = self.get(self.addr + last, params)
-            if not resp:
-                return
-            subdomains = self.match_subdomains(resp.text)
+            subdomains = self.match_subdomains(resp)
             if not subdomains:  # 搜索没有发现子域名则停止搜索
                 break
-            # 合并搜索子域名搜索结果
             self.subdomains = self.subdomains.union(subdomains)
             if 'Next Page' not in resp.text:  # 搜索页面没有出现下一页时停止搜索
                 break
@@ -73,7 +70,7 @@ class NetCraft(Query):
         self.save_db()
 
 
-def do(domain):  # 统一入口名字 方便多线程调用
+def run(domain):
     """
     类统一调用入口
 
@@ -84,4 +81,4 @@ def do(domain):  # 统一入口名字 方便多线程调用
 
 
 if __name__ == '__main__':
-    do('example.com')
+    run('example.com')

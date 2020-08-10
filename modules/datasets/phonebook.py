@@ -33,10 +33,7 @@ class PhoneBook(Query):
             return
         url = f'{addr}/result?k={key}&id={ids}&limit=10000'
         resp = self.get(url)
-        if not resp:
-            return
-        subdomains = self.match_subdomains(resp.text)
-        self.subdomains = self.subdomains.union(subdomains)
+        self.subdomains = self.collect_subdomains(resp)
 
     def run(self):
         """
@@ -50,7 +47,7 @@ class PhoneBook(Query):
         self.save_db()
 
 
-def do(domain):  # 统一入口名字 方便多线程调用
+def run(domain):
     """
     类统一调用入口
 
@@ -61,4 +58,4 @@ def do(domain):  # 统一入口名字 方便多线程调用
 
 
 if __name__ == '__main__':
-    do('freebuf.com')
+    run('freebuf.com')

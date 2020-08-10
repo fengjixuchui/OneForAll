@@ -20,11 +20,7 @@ class PassiveDnsAPI(Query):
         self.proxy = self.get_proxy(self.source)
         url = self.addr + '/flint/rrset/*.' + self.domain
         resp = self.get(url)
-        if not resp:
-            return
-        subdomains = self.match_subdomains(resp.text)
-        # 合并搜索子域名搜索结果
-        self.subdomains = self.subdomains.union(subdomains)
+        self.subdomains = self.collect_subdomains(resp)
 
     def run(self):
         """
@@ -41,7 +37,7 @@ class PassiveDnsAPI(Query):
         self.save_db()
 
 
-def do(domain):  # 统一入口名字 方便多线程调用
+def run(domain):
     """
     类统一调用入口
 
@@ -52,4 +48,4 @@ def do(domain):  # 统一入口名字 方便多线程调用
 
 
 if __name__ == '__main__':
-    do('example.com')
+    run('example.com')

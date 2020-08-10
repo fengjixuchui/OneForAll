@@ -18,11 +18,7 @@ class ThreatMiner(Query):
         params = {'e': 'subdomains_container',
                   'q': self.domain, 't': 0, 'rt': 10}
         resp = self.get(self.addr, params)
-        if not resp:
-            return
-        subdomains = self.match_subdomains(resp.text)
-        # 合并搜索子域名搜索结果
-        self.subdomains = self.subdomains.union(subdomains)
+        self.subdomains = self.collect_subdomains(resp)
 
     def run(self):
         """
@@ -36,7 +32,7 @@ class ThreatMiner(Query):
         self.save_db()
 
 
-def do(domain):  # 统一入口名字 方便多线程调用
+def run(domain):
     """
     类统一调用入口
 
@@ -47,4 +43,4 @@ def do(domain):  # 统一入口名字 方便多线程调用
 
 
 if __name__ == '__main__':
-    do('example.com')
+    run('example.com')
