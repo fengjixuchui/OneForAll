@@ -49,30 +49,24 @@ def gen_fake_header():
     """
     Generate fake request headers
     """
-    ua = random.choice(user_agents)
-    headers = {
-        'Accept': 'text/html,application/xhtml+xml,'
-                  'application/xml;q=0.9,*/*;q=0.8',
-        'Accept-Encoding': 'gzip, deflate',
-        'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
-        'Cache-Control': 'max-age=0',
-        'DNT': '1',
-        'Referer': 'https://www.google.com/',
-        'Upgrade-Insecure-Requests': '1',
-        'User-Agent': ua,
-        'X-Forwarded-For': '127.0.0.1'
-    }
+    headers = settings.headers
+    if not isinstance(headers, dict):
+        headers = dict()
+    if settings.random_user_agent:
+        ua = random.choice(user_agents)
+        headers['User-Agent'] = ua
+    headers['Accept-Encoding'] = 'gzip, deflate'
     return headers
 
 
 def get_random_header():
     """
-    Get random proxy
+    Get random header
     """
-    header = None
-    if settings.fake_header:
-        header = gen_fake_header()
-    return header
+    headers = gen_fake_header()
+    if not isinstance(headers, dict):
+        headers = None
+    return headers
 
 
 def get_random_proxy():
@@ -110,6 +104,17 @@ def split_list(ls, size):
     return [ls[i:i + size] for i in range(0, len(ls), size)]
 
 
+def read_target(target):
+    domains = list()
+    with open(target, encoding='utf-8', errors='ignore') as file:
+        for line in file:
+            line = line.lower().strip()
+            domain = Domain(line).match()
+            if domain:
+                domains.append(domain)
+    return domains
+
+
 def get_domains(target):
     """
     Get domains
@@ -126,12 +131,7 @@ def get_domains(target):
     elif isinstance(target, str):
         path = Path(target)
         if path.exists() and path.is_file():
-            with open(target, encoding='utf-8', errors='ignore') as file:
-                for line in file:
-                    line = line.lower().strip()
-                    domain = Domain(line).match()
-                    if domain:
-                        domains.append(domain)
+            domains = read_target(target)
         else:
             target = target.lower().strip()
             domain = Domain(target).match()
@@ -142,22 +142,8 @@ def get_domains(target):
         logger.log('FATAL', f'Get {count} domains')
         exit(1)
     logger.log('INFOR', f'Get {count} domains')
+    logger.log('DEBUG', f'The obtained domains \n{domains}')
     return domains
-
-
-def get_semaphore():
-    """
-    获取查询并发值
-
-    :return: 并发整型值
-    """
-    system = platform.system()
-    if system == 'Windows':
-        return 800
-    elif system == 'Linux':
-        return 800
-    elif system == 'Darwin':
-        return 800
 
 
 def check_dir(dir_path):
@@ -458,8 +444,8 @@ def set_id_none(data):
 def get_filtered_data(data):
     filtered_data = []
     for item in data:
-        valid = item.get('resolve')
-        if valid == 0:
+        resolve = item.get('resolve')
+        if resolve != 1:
             filtered_data.append(item)
     return filtered_data
 
@@ -503,27 +489,21 @@ def get_process_num():
 
 
 def get_coroutine_num():
-    coroutine_num = settings.resolve_coroutine_num
-    if isinstance(coroutine_num, int):
-        return max(64, coroutine_num)
-    elif coroutine_num is None:
-        mem = psutil.virtual_memory()
-        total_mem = mem.total
-        g_size = 1024 * 1024 * 1024
-        if total_mem <= 1 * g_size:
-            return 64
-        elif total_mem <= 2 * g_size:
-            return 128
-        elif total_mem <= 4 * g_size:
-            return 256
-        elif total_mem <= 8 * g_size:
-            return 512
-        elif total_mem <= 16 * g_size:
-            return 1024
-        else:
-            return 2048
-    else:
+    mem = psutil.virtual_memory()
+    total_mem = mem.total
+    g_size = 1024 * 1024 * 1024
+    if total_mem <= 1 * g_size:
+        return 32
+    elif total_mem <= 2 * g_size:
         return 64
+    elif total_mem <= 4 * g_size:
+        return 128
+    elif total_mem <= 8 * g_size:
+        return 256
+    elif total_mem <= 16 * g_size:
+        return 512
+    else:
+        return 1024
 
 
 def uniq_dict_list(dict_list):
@@ -605,14 +585,14 @@ def check_version(local):
     try:
         resp = requests.get(url=api, headers=header, proxies=proxy,
                             timeout=timeout, verify=verify)
-        json = resp.json()
-        latest = json['tag_name']
+        resp_json = resp.json()
+        latest = resp_json['tag_name']
     except Exception as e:
         logger.log('ERROR', 'An error occurred while checking the latest version')
         logger.log('ERROR', e.args)
         return
     if latest > local:
-        change = json.get("body")
+        change = resp_json.get("body")
         logger.log('ALERT', f'The current version is {local} '
                             f'but the latest version is {latest}')
         logger.log('ALERT', f'The {latest} version mainly has the following changes')
@@ -640,7 +620,7 @@ def call_massdns(massdns_path, dict_path, ns_path, output_path, log_path,
           f'--hashmap-size {concurrent_num} --resolvers {ns_path} ' \
           f'--resolve-count {resolve_num} --type {query_type} ' \
           f'--flush --output J --outfile {output_path} ' \
-          f'--root --error-log {log_path} {dict_path}'
+          f'--root --error-log {log_path} {dict_path} --filter OK'
     logger.log('DEBUG', f'Run command {cmd}')
     subprocess.run(args=cmd, shell=True)
     logger.log('DEBUG', f'Finished massdns')

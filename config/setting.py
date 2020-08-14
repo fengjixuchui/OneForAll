@@ -83,7 +83,6 @@ proxy_pool = [{'http': 'http://127.0.0.1:1080',
 
 
 # 网络请求设置
-enable_fake_header = True  # 启用伪造请求头
 request_delay = 1  # 请求时延
 request_timeout = 60  # 请求超时
 request_verify = False  # 请求SSL验证
@@ -95,11 +94,9 @@ search_recursive_times = 2  # 递归搜索层数
 # aiohttp有关配置
 # aiohttp 支持 HTTP/HTTPS形式的代理
 aiohttp_proxy = None  # 示例 proxy="http://user:pass@some.proxy.com"
-fake_header = True  # 使用伪造请求头
 # 为了保证请求质量 请谨慎更改以下设置
 sockread_timeout = 6  # 每个请求socket读取超时时间，默认6秒
 sockconn_timeout = 3  # 每个请求socket连接超时时间，默认3秒
-# 限制同一时间打开的连接总数
-limit_open_conn = 800  # 默认800
+limit_open_conn = None  # 限制同一时间打开的连接总数，默认None将根据系统内存大小自动设置
 # 限制同一时间在同一个端点((host, port, is_ssl) 3者都一样的情况)打开的连接数
 limit_per_host = 10  # 0表示不限制,默认10
