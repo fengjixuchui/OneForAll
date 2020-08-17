@@ -104,44 +104,55 @@ def split_list(ls, size):
     return [ls[i:i + size] for i in range(0, len(ls), size)]
 
 
-def read_target(target):
-    domains = list()
+def match_main_domain(domain):
+    if not isinstance(domain, str):
+        return None
+    item = domain.lower().strip()
+    return Domain(item).match()
+
+
+def read_target_file(target):
+    domains = set()
     with open(target, encoding='utf-8', errors='ignore') as file:
         for line in file:
-            line = line.lower().strip()
-            domain = Domain(line).match()
+            domain = match_main_domain(line)
             if domain:
-                domains.append(domain)
+                domains.add(domain)
     return domains
 
 
-def get_domains(target):
-    """
-    Get domains
+def get_from_target(target):
+    domains = set()
+    if isinstance(target, str):
+        domain = match_main_domain(target)
+        if domain:
+            domains.add(domain)
+    return domains
 
-    :param  set or str target:
-    :return list: domain list
-    """
-    domains = list()
+
+def get_from_targets(targets):
+    domains = set()
+    if not isinstance(targets, str):
+        return domains
+    try:
+        path = Path(targets)
+    except Exception as e:
+        logger.log('ERROR', e.args)
+        return domains
+    if path.exists() and path.is_file():
+        domains = read_target_file(targets)
+        return domains
+    return domains
+
+
+def get_domains(target, targets=None):
     logger.log('DEBUG', f'Getting domains')
-    if isinstance(target, (set, tuple)):
-        domains = list(target)
-    elif isinstance(target, list):
-        domains = target
-    elif isinstance(target, str):
-        path = Path(target)
-        if path.exists() and path.is_file():
-            domains = read_target(target)
-        else:
-            target = target.lower().strip()
-            domain = Domain(target).match()
-            if domain:
-                domains.append(domain)
-    count = len(domains)
-    if count == 0:
-        logger.log('FATAL', f'Get {count} domains')
-        exit(1)
-    logger.log('INFOR', f'Get {count} domains')
+    target_domains = get_from_target(target)
+    targets_domains = get_from_targets(targets)
+    domains = list(target_domains.union(targets_domains))
+    logger.log('INFOR', f'Get {len(domains)} domains')
+    if not domains:
+        logger.log('ERROR', f'Did not get a valid domain name')
     logger.log('DEBUG', f'The obtained domains \n{domains}')
     return domains
 
@@ -488,19 +499,24 @@ def get_process_num():
         return 1
 
 
-def get_coroutine_num():
+def get_coroutine_count():
+    """
+    根据内存大小获取并发数量
+    """
     mem = psutil.virtual_memory()
     total_mem = mem.total
     g_size = 1024 * 1024 * 1024
-    if total_mem <= 1 * g_size:
+    if total_mem < 1 * g_size:
+        return 16
+    elif total_mem < 2 * g_size:
         return 32
-    elif total_mem <= 2 * g_size:
+    elif total_mem < 4 * g_size:
         return 64
-    elif total_mem <= 4 * g_size:
+    elif total_mem < 8 * g_size:
         return 128
-    elif total_mem <= 8 * g_size:
+    elif total_mem < 16 * g_size:
         return 256
-    elif total_mem <= 16 * g_size:
+    elif total_mem < 32 * g_size:
         return 512
     else:
         return 1024

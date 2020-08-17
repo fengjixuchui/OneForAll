@@ -40,7 +40,11 @@ def check_header_key(header):
 def check_cdn_cidr(content):
     ips = set(content.split(','))
     for ip in ips:
-        ip = ipaddress.ip_address(ip)
+        try:
+            ip = ipaddress.ip_address(ip)
+        except Exception as e:
+            logger.log('DEBUG', e.args)
+            return False
         for cidr in cdn_ip_cidr:
             if ip in ipaddress.ip_network(cidr):
                 return True
@@ -52,6 +56,7 @@ def check_cdn_asn(asn):
 
 
 def check_cdn(data):
+    logger.log('DEBUG', f'Start cdn check module')
     for index, item in enumerate(data):
         cname = item.get('cname')
         if cname:
@@ -81,5 +86,5 @@ def check_cdn(data):
 
 
 def save_db(name, data):
-    logger.log('INFOR', f'Saving cdn check results')
+    logger.log('DEBUG', f'Saving cdn check results')
     utils.save_db(name, data, 'cdn')
