@@ -4,7 +4,7 @@ OneForAll默认配置
 """
 
 import pathlib
-import urllib3
+import warnings
 
 # 路径设置
 relative_directory = pathlib.Path(__file__).parent.parent  # OneForAll代码相对路径
@@ -21,7 +21,7 @@ enable_dns_resolve = True  # 使用DNS解析子域(默认True)
 enable_http_request = True  # 使用HTTP请求子域(默认True)
 enable_finder_module = True  # 开启finder模块,开启会从响应体和JS中再次发现子域(默认True)
 enable_cdn_check = True  # 开启cdn检查模块(默认True)
-enable_banner_identify = False  # 开启WEB指纹识别模块(默认True)
+enable_banner_identify = True  # 开启WEB指纹识别模块(默认True)
 enable_takeover_check = False  # 开启子域接管风险检查(默认False)
 # 参数可选值有'small', 'medium', 'large'
 http_request_port = 'small'  # HTTP请求子域(默认'small'，探测80,443端口)
@@ -40,7 +40,7 @@ enable_partial_module = []  # 启用部分收集模块 必须禁用enable_all_mo
 # 只使用ask和baidu搜索引擎收集子域的示例
 # enable_partial_module = [('modules.search', 'ask')
 #                          ('modules.search', 'baidu')]
-module_thread_timeout = 180.0  # 每个收集模块线程超时时间(默认3分钟)
+module_thread_timeout = 120.0  # 每个收集模块线程超时时间(默认2分钟)
 
 # 爆破模块设置
 enable_wildcard_check = True  # 开启泛解析检测(默认True)
@@ -51,7 +51,7 @@ brute_status_format = 'ansi'  # 爆破时状态输出格式（默认asni，可�
 brute_process_num = 1  # 默认1
 brute_concurrent_num = 2000  # 并发查询数量(默认2000，最大推荐10000)
 brute_socket_num = 1  # 爆破时每个进程下的socket数量
-brute_resolve_num = 3  # 解析失败时尝试换名称服务器重查次数
+brute_resolve_num = 10  # 解析失败时尝试换名称服务器重查次数
 # 爆破所使用的字典路径 默认data/subdomains.txt
 brute_wordlist_path = data_storage_dir.joinpath('subnames.txt')
 # 爆破所使用的字典路径 默认data/cn_nameservers.txt
@@ -95,8 +95,8 @@ proxy_pool = [{'http': 'http://127.0.0.1:1080',
 request_delay = 1  # 请求时延
 request_timeout = 60  # 请求超时
 request_verify = False  # 请求SSL验证
-# 禁用安全警告信息
-urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+# 禁用所有警告信息
+warnings.filterwarnings("ignore")
 
 # 搜索模块设置
 # 开启全量搜索会尽量去获取搜索引擎搜索的全部结果，不过搜索耗时可能会过长
@@ -154,10 +154,10 @@ limit_open_conn = None  # 限制同一时间打开的连接总数，默认None�
 # 限制同一时间在同一个端点((host, port, is_ssl) 3者都一样的情况)打开的连接数
 limit_per_host = 10  # 0表示不限制,默认10
 
-subdomains_common = {'i', 'w', 'm', 'en', 'us', 'zh', 'w3', 'app', 'bbs',
-                     'web', 'www', 'job', 'docs', 'news', 'blog', 'data',
-                     'help', 'live', 'mall', 'blogs', 'files', 'forum',
-                     'store', 'mobile'}
+common_subnames = {'i', 'w', 'm', 'en', 'us', 'zh', 'w3', 'app', 'bbs',
+                   'web', 'www', 'job', 'docs', 'news', 'blog', 'data',
+                   'help', 'live', 'mall', 'blogs', 'files', 'forum',
+                   'store', 'mobile'}
 
 # 请求头设置
 # 可以在headers里添加自定义请求头

@@ -9,6 +9,12 @@ from common.ipgeo import IpGeoInfo
 from common.ipreg import IpRegInfo
 
 
+ip_asn = IPAsnInfo()
+ip_geo = IpGeoInfo()
+db_path = settings.data_storage_dir.joinpath('ip2region.db')
+ip_reg = IpRegInfo(db_path)
+
+
 def filter_subdomain(data):
     """
     过滤出无解析内容的子域到新的子域列表
@@ -25,25 +31,30 @@ def filter_subdomain(data):
     return subdomains
 
 
-def update_data(data, records):
+def update_data(data, infos):
     """
     更新解析结果
 
     :param list data: 待更新的数据列表
-    :param dict records: 解析结果字典
+    :param dict infos: 子域有关结果信息
     :return: 更新后的数据列表
     """
     logger.log('DEBUG', f'Updating resolved results')
-    if not records:
+    if not infos:
         logger.log('ERROR', f'No valid resolved result')
         return data
     for index, items in enumerate(data):
-        if not items.get('content'):
-            subdomain = items.get('subdomain')
-            record = records.get(subdomain)
-            if record:
-                items.update(record)
-            data[index] = items
+        if items.get('content'):
+            continue
+        subdomain = items.get('subdomain')
+        record = infos.get(subdomain)
+        if record:
+            items.update(record)
+        else:
+            items['resolve'] = 0
+            items['alive'] = 0
+            items['reason'] = 'NoResult'
+        data[index] = items
     return data
 
 
@@ -66,13 +77,61 @@ def save_subdomains(save_path, subdomain_list):
         exit(1)
 
 
+def gen_infos(data, qname, info, infos):
+    flag = False
+    cname = list()
+    ips = list()
+    public = list()
+    ttls = list()
+    cidrs = list()
+    asns = list()
+    orgs = list()
+    locs = list()
+    regs = list()
+    answers = data.get('answers')
+    for answer in answers:
+        if answer.get('type') == 'A':
+            flag = True
+            cname.append(answer.get('name')[:-1])  # 去除最右边的`.`点号
+            ip = answer.get('data')
+            ips.append(ip)
+            ttl = answer.get('ttl')
+            ttls.append(str(ttl))
+            is_public = utils.ip_is_public(ip)
+            public.append(str(is_public))
+            asn_info = ip_asn.find(ip)
+            cidrs.append(asn_info.get('cidr'))
+            asns.append(asn_info.get('asn'))
+            orgs.append(asn_info.get('org'))
+            loc = f'{ip_geo.get_country_long(ip)} ' \
+                  f'{ip_geo.get_region(ip)} ' \
+                  f'{ip_geo.get_city(ip)}'
+            locs.append(loc)
+            reg = ip_reg.memory_search(ip).get('region').decode('utf-8')
+            regs.append(reg)
+            info['resolve'] = 1
+            info['reason'] = 'OK'
+            info['cname'] = ','.join(cname)
+            info['content'] = ','.join(ips)
+            info['public'] = ','.join(public)
+            info['ttl'] = ','.join(ttls)
+            info['cidr'] = ','.join(cidrs)
+            info['asn'] = ','.join(asns)
+            info['org'] = ','.join(orgs)
+            info['ip2location'] = ','.join(locs)
+            info['ip2region'] = ','.join(regs)
+            infos[qname] = info
+    if not flag:
+        info['alive'] = 0
+        info['resolve'] = 0
+        info['reason'] = 'NoARecord'
+        infos[qname] = info
+    return infos
+
+
 def deal_output(output_path):
     logger.log('INFOR', f'Processing resolved results')
-    records = dict()  # 用来记录所有域名解析数据
-    ip_asn = IPAsnInfo()
-    ip_geo = IpGeoInfo
-    db_path = settings.data_storage_dir.joinpath('ip2region.db')
-    ip_reg = IpRegInfo(db_path)
+    infos = dict()  # 用来记录所有域名有关信息
     with open(output_path) as fd:
         for line in fd:
             line = line.strip()
@@ -82,72 +141,21 @@ def deal_output(output_path):
                 logger.log('ERROR', e.args)
                 logger.log('ERROR', f'Error resolve line {line}, skip this line')
                 continue
-            record = dict()
-            record['resolver'] = items.get('resolver')
+            info = dict()
+            info['resolver'] = items.get('resolver')
             qname = items.get('name')[:-1]  # 去除最右边的`.`点号
             status = items.get('status')
             if status != 'NOERROR':
-                record['alive'] = 0
-                record['resolve'] = 0
-                record['reason'] = status
-                records[qname] = record
                 continue
             data = items.get('data')
             if 'answers' not in data:
-                record['alive'] = 0
-                record['resolve'] = 0
-                record['reason'] = 'NOANSWER'
-                records[qname] = record
+                info['alive'] = 0
+                info['resolve'] = 0
+                info['reason'] = 'NoAnswer'
+                infos[qname] = info
                 continue
-            flag = False
-            cname = list()
-            ips = list()
-            public = list()
-            ttls = list()
-            cidrs = list()
-            asns = list()
-            orgs = list()
-            locs = list()
-            regs = list()
-            answers = data.get('answers')
-            for answer in answers:
-                if answer.get('type') == 'A':
-                    flag = True
-                    cname.append(answer.get('name')[:-1])  # 去除最右边的`.`点号
-                    ip = answer.get('data')
-                    ips.append(ip)
-                    ttl = answer.get('ttl')
-                    ttls.append(str(ttl))
-                    is_public = utils.ip_is_public(ip)
-                    public.append(str(is_public))
-                    asn_info = ip_asn.find(ip)
-                    cidrs.append(asn_info.get('cidr'))
-                    asns.append(asn_info.get('asn'))
-                    orgs.append(asn_info.get('org'))
-                    loc = f'{ip_geo.get_country_long(ip)} ' \
-                          f'{ip_geo.get_region(ip)} ' \
-                          f'{ip_geo.get_city(ip)}'
-                    locs.append(loc)
-                    reg = ip_reg.memory_search(ip).get('region').decode('utf-8')
-                    regs.append(reg)
-                    record['resolve'] = 1
-                    record['reason'] = status
-                    record['cname'] = ','.join(cname)
-                    record['content'] = ','.join(ips)
-                    record['public'] = ','.join(public)
-                    record['ttl'] = ','.join(ttls)
-                    record['cidr'] = ','.join(cidrs)
-                    record['asn'] = ','.join(asns)
-                    record['org'] = ','.join(orgs)
-                    record['ip2location'] = ','.join(locs)
-                    record['ip2region'] = ','.join(regs)
-                    records[qname] = record
-            if not flag:
-                record['alive'] = 0
-                record['resolve'] = 0
-                record['reason'] = 'NOARECORD'
-                records[qname] = record
-    return records
+            infos = gen_infos(data, qname, info, infos)
+    return infos
 
 
 def run_resolve(domain, data):
@@ -187,7 +195,7 @@ def run_resolve(domain, data):
     utils.call_massdns(massdns_path, save_path, ns_path,
                        output_path, log_path, quiet_mode=True)
 
-    records = deal_output(output_path)
-    data = update_data(data, records)
+    infos = deal_output(output_path)
+    data = update_data(data, infos)
     logger.log('INFOR', f'Finished resolve subdomains of {domain}')
     return data

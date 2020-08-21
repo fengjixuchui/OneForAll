@@ -112,21 +112,30 @@ def match_main_domain(domain):
 
 
 def read_target_file(target):
-    domains = set()
+    domains = list()
     with open(target, encoding='utf-8', errors='ignore') as file:
         for line in file:
             domain = match_main_domain(line)
-            if domain:
-                domains.add(domain)
-    return domains
+            if not domain:
+                continue
+            domain = get_main_domain(domain)
+            if not domain:
+                continue
+            domains.append(domain)
+    sorted_domains = sorted(set(domains), key=domains.index)
+    return sorted_domains
 
 
 def get_from_target(target):
     domains = set()
     if isinstance(target, str):
         domain = match_main_domain(target)
-        if domain:
-            domains.add(domain)
+        if not domain:
+            return domains
+        domain = get_main_domain(domain)
+        if not domain:
+            return domains
+        domains.add(domain)
     return domains
 
 
@@ -618,6 +627,8 @@ def check_version(local):
 
 
 def get_main_domain(domain):
+    if not isinstance(domain, str):
+        return None
     return Domain(domain).registered()
 
 
@@ -636,7 +647,8 @@ def call_massdns(massdns_path, dict_path, ns_path, output_path, log_path,
           f'--hashmap-size {concurrent_num} --resolvers {ns_path} ' \
           f'--resolve-count {resolve_num} --type {query_type} ' \
           f'--flush --output J --outfile {output_path} ' \
-          f'--root --error-log {log_path} {dict_path} --filter OK'
+          f'--root --error-log {log_path} {dict_path} --filter OK ' \
+          f'--sndbuf 0 --rcvbuf 0'
     logger.log('DEBUG', f'Run command {cmd}')
     subprocess.run(args=cmd, shell=True)
     logger.log('DEBUG', f'Finished massdns')
@@ -674,11 +686,13 @@ def is_subname(name):
 
 
 def ip_to_int(ip):
+    if isinstance(ip, int):
+        return ip
     try:
         ipv4 = IPv4Address(ip)
     except Exception as e:
         logger.log('ERROR', e.args)
-        return None
+        return 0
     return int(ipv4)
 
 
@@ -717,3 +731,13 @@ def match_subdomains(domain, html, distinct=True, fuzzy=True):
         return set(deal)
     else:
         return list(deal)
+
+
+def check_random_subdomain(subdomains):
+    if not subdomains:
+        logger.log('ALERT', f'The generated dictionary is empty')
+        return False
+    for subdomain in subdomains:
+        if subdomain:
+            logger.log('ALERT', f'Please check whether {subdomain} is correct or not')
+            return True

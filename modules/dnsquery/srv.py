@@ -17,7 +17,7 @@ class BruteSRV(Module):
         self.domain = domain
         self.module = 'dnsquery'
         self.source = "BruteSRV"
-        self.type = 'SRV'  # 利用的DNS记录的SRV记录查询子域
+        self.qtype = 'SRV'  # 利用的DNS记录的SRV记录查询子域
         self.thread_num = 10
         self.names_que = queue.Queue()
         self.answers_que = queue.Queue()
@@ -52,8 +52,7 @@ class BruteSRV(Module):
             for item in answer:
                 record = str(item)
                 subdomains = self.match_subdomains(record)
-                self.subdomains = self.subdomains.union(subdomains)
-                self.gen_record(subdomains, record)
+                self.subdomains.update(subdomains)
 
     def run(self):
         """

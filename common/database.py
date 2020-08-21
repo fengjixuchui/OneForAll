@@ -28,7 +28,7 @@ class Database(object):
         if not db_path:  # 数据库路径为空连接默认数据库
             db_path = f'{protocol}{settings.result_save_dir}/result.sqlite3'
         else:
-            db_path = protocol + db_path
+            db_path = f'{protocol}{db_path}'
         db = records.Database(db_path)  # 不存在数据库时会新建一个数据库
         logger.log('TRACE', f'Use the database: {db_path}')
         return db.get_connection()
@@ -38,8 +38,8 @@ class Database(object):
             results = self.conn.query(sql)
         except Exception as e:
             logger.log('ERROR', e.args)
-        else:
-            return results
+            return None
+        return results
 
     def create_table(self, table_name):
         """
@@ -54,7 +54,6 @@ class Database(object):
         logger.log('TRACE', f'Creating {table_name} table')
         self.query(f'create table "{table_name}" ('
                    f'id integer primary key,'
-                   f'type text,'
                    f'alive int,'
                    f'request int,'
                    f'resolve int,'
@@ -72,6 +71,7 @@ class Database(object):
                    f'title text,'
                    f'banner text,'
                    f'header text,'
+                   f'history text,'
                    f'response text,'
                    f'times text,'
                    f'ttl text,'
@@ -84,9 +84,7 @@ class Database(object):
                    f'module text,'
                    f'source text,'
                    f'elapse float,'
-                   f'find int,'
-                   f'brute int,'
-                   f'valid int)')
+                   f'find int)')
 
     def save_db(self, table_name, results, module_name=None):
         """
@@ -102,16 +100,16 @@ class Database(object):
         if results:
             try:
                 self.conn.bulk_query(
-                    f'insert into "{table_name}" (id, type, alive, resolve, request, new,'
-                    f'url, subdomain, port, level, cname, content, public, cdn, status,'
-                    f'reason, title, banner, header, response, times, ttl, cidr, asn, org,'
-                    f' ip2region, ip2location, resolver, module, source, elapse, find,'
-                    f'brute, valid) '
-                    f'values (:id, :type, :alive, :resolve, :request, :new, :url, '
-                    f':subdomain, :port, :level, :cname, :content, :public, :cdn, :status,'
-                    f':reason, :title, :banner, :header, :response, :times, :ttl, :cidr,'
-                    f':asn, :org, :ip2region, :ip2location, :resolver, :module, :source,'
-                    f':elapse, :find, :brute, :valid)', results)
+                    f'insert into "{table_name}" '
+                    f'(id, alive, resolve, request, new, url, subdomain, port, level,'
+                    f'cname, content, public, cdn, status, reason, title, banner, header,'
+                    f'history, response, times, ttl, cidr, asn, org, ip2region,'
+                    f'ip2location, resolver, module, source, elapse, find) '
+                    f'values (:id, :alive, :resolve, :request, :new, :url, '
+                    f':subdomain, :port, :level, :cname, :content, :public, :cdn,'
+                    f':status, :reason, :title, :banner, :header, :history, :response,'
+                    f':times, :ttl, :cidr, :asn, :org, :ip2region, :ip2location,'
+                    f':resolver, :module, :source, :elapse, :find)', results)
             except Exception as e:
                 logger.log('ERROR', e)
 
@@ -231,10 +229,9 @@ class Database(object):
         :param str limit: limit value
         """
         table_name = table_name.replace('.', '_')
-        query = f'select id, type, new, alive, request, resolve, url, subdomain, level,' \
+        query = f'select id, new, alive, request, resolve, url, subdomain, level,' \
                 f'cname, content, public, cdn, port, status, reason, title, banner,' \
-                f'times, ttl, cidr, asn, org, ip2region, ip2location, resolver, module,' \
-                f'source, elapse, find, brute, valid from "{table_name}"'
+                f'cidr, asn, org, ip2region, ip2location, source from "{table_name}"'
         if alive and limit:
             if limit in ['resolve', 'request']:
                 where = f' where {limit} = 1'

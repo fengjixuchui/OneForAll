@@ -13,7 +13,7 @@ class Gitee(Search):
         self.domain = domain
         self.header = self.get_header()
 
-    def search(self, full_search=False):
+    def search(self):
         """
         向接口查询子域并做子域匹配
         """
@@ -37,7 +37,7 @@ class Gitee(Search):
             subdomains = self.match_subdomains(soup, fuzzy=False)
             if not self.check_subdomains(subdomains):
                 break
-            self.subdomains = self.subdomains.union(subdomains)
+            self.subdomains.update(subdomains)
             if '<li class="disabled"><a href="###">' in resp.text:
                 break
             page_num += 1
