@@ -105,8 +105,8 @@ def filter_name(path):
         if path.endswith(name):
             return True
     black_ext = ['io.js', 'ui.js', 'fp.js', 'en.js', 'en-us,js', 'zh.js', 'zh-cn.js',
-                 'zh_cn.js', 'dev.js', 'min.js', 'umd.js', 'esm.js', 'all.js', 'cjs.js', 'prod.js',
-                 'slim.js', 'core.js', 'global.js', 'bundle.js', 'browser.js',
+                 'zh_cn.js', 'dev.js', 'min.js', 'umd.js', 'esm.js', 'all.js', 'cjs.js',
+                 'prod.js', 'slim.js', 'core.js', 'global.js', 'bundle.js', 'browser.js',
                  'brands.js', 'simple.js', 'common.js', 'development.js', 'banner.js',
                  'production.js']
     for ext in black_ext:
@@ -191,7 +191,7 @@ def find_subdomains(domain, data):
         js_urls.update(find_js_urls(domain, req_url, rsp_html))
 
     resp_data = request.bulk_request(js_urls)
-    for resp in resp_data:
+    for _, resp in resp_data:
         if not resp:
             continue
         text = utils.decode_resp_text(resp)

@@ -75,15 +75,17 @@ class Module(object):
         :param kwargs: other params
         :return: response object
         """
+        session = requests.Session()
+        session.trust_env = False
         try:
-            resp = requests.head(url,
-                                 params=params,
-                                 cookies=self.cookie,
-                                 headers=self.header,
-                                 proxies=self.proxy,
-                                 timeout=self.timeout,
-                                 verify=self.verify,
-                                 **kwargs)
+            resp = session.head(url,
+                                params=params,
+                                cookies=self.cookie,
+                                headers=self.header,
+                                proxies=self.proxy,
+                                timeout=self.timeout,
+                                verify=self.verify,
+                                **kwargs)
         except Exception as e:
             logger.log('ERROR', e.args)
             return None
@@ -93,7 +95,7 @@ class Module(object):
             return resp
         return None
 
-    def get(self, url, params=None, check=True, ignore=False, **kwargs):
+    def get(self, url, params=None, check=True, ignore=False,raise_error=False, **kwargs):
         """
         Custom get request
 
@@ -101,22 +103,29 @@ class Module(object):
         :param dict params: request parameters
         :param bool check: check response
         :param bool ignore: ignore error
+        :param bool raise_error: raise error or not
         :param kwargs: other params
         :return: response object
         """
+        session = requests.Session()
+        session.trust_env = False
         level = 'ERROR'
         if ignore:
             level = 'DEBUG'
         try:
-            resp = requests.get(url,
-                                params=params,
-                                cookies=self.cookie,
-                                headers=self.header,
-                                proxies=self.proxy,
-                                timeout=self.timeout,
-                                verify=self.verify,
-                                **kwargs)
+            resp = session.get(url,
+                               params=params,
+                               cookies=self.cookie,
+                               headers=self.header,
+                               proxies=self.proxy,
+                               timeout=self.timeout,
+                               verify=self.verify,
+                               **kwargs)
         except Exception as e:
+            if raise_error:
+                if isinstance(e, requests.exceptions.ConnectTimeout):
+                    logger.log(level, e.args)
+                    raise e
             logger.log(level, e.args)
             return None
         if not check:
@@ -135,15 +144,17 @@ class Module(object):
         :param kwargs: other params
         :return: response object
         """
+        session = requests.Session()
+        session.trust_env = False
         try:
-            resp = requests.post(url,
-                                 data=data,
-                                 cookies=self.cookie,
-                                 headers=self.header,
-                                 proxies=self.proxy,
-                                 timeout=self.timeout,
-                                 verify=self.verify,
-                                 **kwargs)
+            resp = session.post(url,
+                                data=data,
+                                cookies=self.cookie,
+                                headers=self.header,
+                                proxies=self.proxy,
+                                timeout=self.timeout,
+                                verify=self.verify,
+                                **kwargs)
         except Exception as e:
             logger.log('ERROR', e.args)
             return None
@@ -162,14 +173,16 @@ class Module(object):
         :param kwargs: other params
         :return: requests's response object
         """
+        session = requests.Session()
+        session.trust_env = False
         try:
-            resp = requests.delete(url,
-                                   cookies=self.cookie,
-                                   headers=self.header,
-                                   proxies=self.proxy,
-                                   timeout=self.timeout,
-                                   verify=self.verify,
-                                   **kwargs)
+            resp = session.delete(url,
+                                  cookies=self.cookie,
+                                  headers=self.header,
+                                  proxies=self.proxy,
+                                  timeout=self.timeout,
+                                  verify=self.verify,
+                                  **kwargs)
         except Exception as e:
             logger.log('ERROR', e.args)
             return None
@@ -269,7 +282,7 @@ class Module(object):
                       'port': None,
                       'level': None,
                       'cname': None,
-                      'content': None,
+                      'ip': None,
                       'public': None,
                       'cdn': None,
                       'status': None,
@@ -300,13 +313,13 @@ class Module(object):
                 if info is None:
                     info = dict()
                 cname = info.get('cname')
-                content = info.get('content')
+                ip = info.get('ip')
                 times = info.get('times')
                 ttl = info.get('ttl')
                 public = info.get('public')
                 if isinstance(cname, list):
                     cname = ','.join(cname)
-                    content = ','.join(content)
+                    ip = ','.join(ip)
                     times = ','.join([str(num) for num in times])
                     ttl = ','.join([str(num) for num in ttl])
                     public = ','.join([str(num) for num in public])
@@ -320,7 +333,7 @@ class Module(object):
                           'port': 80,
                           'level': level,
                           'cname': cname,
-                          'content': content,
+                          'ip': ip,
                           'public': public,
                           'cdn': info.get('cdn'),
                           'status': None,

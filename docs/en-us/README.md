@@ -41,7 +41,7 @@ You can use pip3 install requirements, the following is an example of using **pi
 cd OneForAll/
 python -m pip install -U pip setuptools wheel
 pip3 install -r requirements.txt
-python oneforall.py --help
+python3 oneforall.py --help
 ```
 
 For other system platforms, please read [dependency installation](https://github.com/shmilylty/OneForAll/tree/master/docs/installation_dependency.md). If you compile failed during the installation, you can find solution in the [troubleshooting.md](https://github.com/shmilylty/OneForAll/tree/master/docs/troubleshooting.md) documentation. If still not resolved, welcome [issues](https://github.com/shmilylty/OneForAll/issues).
@@ -86,9 +86,9 @@ pipenv run python oneforall.py --target example.com run
 
 3. Turn on brute modules, run the following command(Use massdns for enumerating subdomains, the network may be blocked): 
 ```bash
-python3 run python oneforall.py --target example.com --burte True run
+python3 run python oneforall.py --target example.com --brute True run
 # or
-pipenv run python oneforall.py --target example.com --burte True run
+pipenv run python oneforall.py --target example.com --brute True run
 ```
 </details>
 
@@ -160,7 +160,7 @@ DESCRIPTION
     Note:
         --alive  True/False           Only export alive subdomains or not (default False)
         --port   default/small/large  See details in ./config/setting.py(default port 80)
-        --format rst/csv/tsv/json/yaml/html/jira/xls/xlsx/dbf/latex/ods (result format)
+        --format csv/json (result format)
         --path   Result directory (default directory is ./results)
 
 ARGUMENTS

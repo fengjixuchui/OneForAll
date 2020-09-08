@@ -69,10 +69,9 @@ def check_cdn(data):
             if check_header_key(header):
                 data[index]['cdn'] = 1
                 continue
-        kind = item.get('type')
-        content = item.get('content')
-        if kind == 'A' and content:
-            if check_cdn_cidr(content):
+        ip = item.get('ip')
+        if ip:
+            if check_cdn_cidr(ip):
                 data[index]['cdn'] = 1
                 continue
         asn = item.get('asn')

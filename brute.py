@@ -274,7 +274,7 @@ def get_wildcard_record(domain, resolver):
         raise tenacity.TryAgain
     except (NXDOMAIN, YXDOMAIN, NoAnswer, NoNameservers) as e:
         logger.log('DEBUG', e.args)
-        logger.log('INFOR', f'{domain} dont have A record on authoritative name server')
+        logger.log('DEBUG', f'{domain} dont have A record on authoritative name server')
         return None, None
     except Exception as e:
         logger.log('ERROR', e.args)
@@ -303,7 +303,9 @@ def collect_wildcard_record(domain, authoritative_ns):
     resolver.cache = None  # 不使用DNS缓存
     ips = set()
     ttl = int()
+    ttls_check = list()
     ips_stat = dict()
+    ips_check = list()
     while True:
         token = secrets.token_hex(4)
         random_subdomain = f'{token}.{domain}'
@@ -314,6 +316,20 @@ def collect_wildcard_record(domain, authoritative_ns):
             logger.log('ALERT', f'Multiple query errors,'
                                 f'try to query a new random subdomain')
             continue
+        # 每5次查询检查结果列表 如果都没结果则结束查询
+        ips_check.append(ip)
+        ttls_check.append(ttl)
+        if len(ips_check) == 5:
+            if not any(ips_check):
+                logger.log('ALERT', 'The query ends because there are '
+                                    'no results for 5 consecutive queries.')
+                break
+            ips_check = list()
+        if len(ttls_check) == 5 and len(set(ttls_check)) == 5:
+            logger.log('ALERT', 'The query ends because there are '
+                                '5 different TTL results for 5 consecutive queries.')
+            ips, ttl = set(), int()
+            break
         if ip is None:
             continue
         ips.update(ip)
@@ -398,7 +414,7 @@ def gen_result_infos(items, infos, subdomains, ip_times, wc_ips, wc_ttl):
         info['reason'] = reason
         info['ttl'] = ttls
         info['cname'] = cname
-        info['content'] = ips
+        info['ip'] = ips
         info['public'] = public
         info['times'] = times
         info['resolver'] = resolver
@@ -727,7 +743,7 @@ class Brute(Module):
             if self.recursive_brute:
                 for layer_num in range(1, self.recursive_depth):
                     # 之前已经做过1层子域爆破 当前实际递归层数是layer+1
-                    logger.log('INFOR', f'Start recursively brute the {layer_num+1} layer'
+                    logger.log('INFOR', f'Start recursively brute the {layer_num + 1} layer'
                                         f' subdomain of {self.domain}')
                     for subdomain in all_subdomains:
                         self.place = '*.' + subdomain

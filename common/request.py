@@ -2,7 +2,6 @@ import json
 from threading import Thread
 from queue import Queue
 
-
 import tqdm
 import requests
 from bs4 import BeautifulSoup
@@ -52,9 +51,10 @@ def gen_req_url(domain, port):
     return url
 
 
-def gen_req_urls(data, ports):
+def gen_req_data(data, ports):
     logger.log('INFOR', 'Generating request urls')
-    urls = set()
+    req_data = list()
+    req_urls = set()
     for info in data:
         resolve = info.get('resolve')
         # 解析不成功的子域不进行http请求探测
@@ -62,8 +62,13 @@ def gen_req_urls(data, ports):
             continue
         subdomain = info.get('subdomain')
         for port in ports:
-            urls.add(gen_req_url(subdomain, port))
-    return urls
+            tmp_info = info.copy()
+            tmp_info['port'] = port
+            url = gen_req_url(subdomain, port)
+            tmp_info['url'] = url
+            req_data.append(tmp_info)
+            req_urls.add(url)
+    return req_data, req_urls
 
 
 def get_html_title(markup):
@@ -113,6 +118,14 @@ def get_jump_urls(history):
     return urls
 
 
+def get_progress_bar(total):
+    bar = tqdm.tqdm()
+    bar.total = total
+    bar.desc = 'Request Progress'
+    bar.ncols = 80
+    return bar
+
+
 def get(url, resp_queue, session):
     timeout = settings.request_timeout_second
     redirect = settings.request_allow_redirect
@@ -122,7 +135,7 @@ def get(url, resp_queue, session):
     except Exception as e:
         logger.log('DEBUG', e.args)
         return
-    resp_queue.put(resp)
+    resp_queue.put((url, resp))
 
 
 def request(urls_queue, resp_queue, session):
@@ -132,16 +145,13 @@ def request(urls_queue, resp_queue, session):
         urls_queue.task_done()
 
 
-def progress(urls, resp_queue):
-    bar = tqdm.tqdm()
-    bar.total = len(urls)
-    bar.desc = 'Request Progress'
-    bar.ncols = 80
+def progress(bar, total, urls_queue):
     while True:
-        done = resp_queue.qsize()
+        remaining = urls_queue.qsize()
+        done = total - remaining
         bar.n = done
         bar.update()
-        if done == bar.total:
+        if remaining == 0:
             break
 
 
@@ -150,6 +160,7 @@ def get_session():
     verify = settings.request_ssl_verify
     redirect_limit = settings.request_redirect_limit
     session = requests.Session()
+    session.trust_env = False
     session.headers = header
     session.verify = verify
     session.max_redirects = redirect_limit
@@ -163,28 +174,28 @@ def bulk_request(urls):
     resp_queue = Queue()
     for url in urls:
         urls_queue.put(url)
+    total = len(urls)
     session = get_session()
     thread_count = req_thread_count()
+    bar = get_progress_bar(total)
 
-    progress_thread = Thread(target=progress, args=(urls, resp_queue))
+    progress_thread = Thread(target=progress, name='ProgressThread',
+                             args=(bar, total, urls_queue), daemon=True)
     progress_thread.start()
 
-    for _ in range(thread_count):
-        request_thread = Thread(target=request, args=(urls_queue, resp_queue, session))
+    for i in range(thread_count):
+        request_thread = Thread(target=request, name=f'RequestThread-{i}',
+                                args=(urls_queue, resp_queue, session), daemon=True)
         request_thread.start()
 
     urls_queue.join()
 
     while not resp_queue.empty():
-        resp = resp_queue.get()
-        resp_list.append(resp)
+        resp_list.append(resp_queue.get())
     return resp_list
 
 
 def gen_new_info(info, resp):
-    port = resp.raw._pool.port
-    info['port'] = port
-    info['url'] = resp.url
     info['reason'] = resp.reason
     code = resp.status_code
     info['status'] = code
@@ -208,10 +219,9 @@ def gen_new_info(info, resp):
 
 def gen_new_data(data, resp_list):
     new_data = list()
-    for resp in resp_list:
-        subdomain = resp.raw._pool.host
+    for url, resp in resp_list:
         for info in data:
-            if info.get('subdomain') == subdomain:
+            if info.get('url') == url:
                 new_data.append(gen_new_info(info, resp))
     return new_data
 
@@ -228,14 +238,12 @@ def run_request(domain, data, port):
     logger.log('INFOR', f'Start requesting subdomains of {domain}')
     data = utils.set_id_none(data)
     ports = get_port_seq(port)
-    filtered_data = utils.get_filtered_data(data)
-    req_urls = gen_req_urls(data, ports)
+    req_data, req_urls = gen_req_data(data, ports)
     resp_list = bulk_request(req_urls)
-    new_data = gen_new_data(data, resp_list)
-    data = new_data + filtered_data
-    count = utils.count_alive(data)
+    new_data = gen_new_data(req_data, resp_list)
+    count = utils.count_alive(new_data)
     logger.log('INFOR', f'Found that {domain} has {count} alive subdomains')
-    return data
+    return new_data
 
 
 def save_db(name, data):

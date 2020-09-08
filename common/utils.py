@@ -13,7 +13,7 @@ from stat import S_IXUSR
 import tenacity
 import requests
 from pathlib import Path
-from records import Record, RecordCollection
+from common.records import Record, RecordCollection
 from dns.resolver import Resolver
 
 from common.domain import Domain
@@ -152,6 +152,8 @@ def get_domains(target, targets=None):
     target_domains = get_from_target(target)
     targets_domains = get_from_targets(targets)
     domains = list(target_domains.union(targets_domains))
+    if targets_domains:
+        domains = sorted(domains, key=targets_domains.index) # 按照targets原本的index排序
     logger.log('INFOR', f'Get {len(domains)} domains')
     if not domains:
         logger.log('ERROR', f'Did not get a valid domain name')
@@ -201,12 +203,7 @@ def check_format(format, count):
     :param count: 数量
     :return: 导出格式
     """
-    formats = ['rst', 'csv', 'tsv', 'json', 'yaml', 'html',
-               'jira', 'xls', 'xlsx', 'dbf', 'latex', 'ods']
-    if format == 'xls' and count > 65000:
-        logger.log('ALERT', '\'xls\' file is limited to 65000 lines')
-        logger.log('ALERT', 'So use xlsx format replace')
-        return 'xlsx'
+    formats = ['csv', 'json', ]
     if format in formats:
         return format
     else:
@@ -526,8 +523,10 @@ def check_net():
             'http://www.apple.com', 'http://microsoft.com']
     url = random.choice(urls)
     logger.log('INFOR', f'Trying to access {url}')
+    session = requests.Session()
+    session.trust_env = False
     try:
-        rsp = requests.get(url)
+        rsp = session.get(url, proxies=get_proxy())
     except Exception as e:
         logger.log('ERROR', e.args)
         logger.log('ALERT', 'Can not access Internet, retrying')
@@ -570,9 +569,11 @@ def check_version(local):
     proxy = get_proxy()
     timeout = settings.request_timeout_second
     verify = settings.request_ssl_verify
+    session = requests.Session()
+    session.trust_env = False
     try:
-        resp = requests.get(url=api, headers=header, proxies=proxy,
-                            timeout=timeout, verify=verify)
+        resp = session.get(url=api, headers=header, proxies=proxy,
+                           timeout=timeout, verify=verify)
         resp_json = resp.json()
         latest = resp_json['tag_name']
     except Exception as e:
@@ -707,12 +708,15 @@ def check_random_subdomain(subdomains):
 
 
 def get_url_resp(url):
-    timeout = settings.request_timeout
-    verify = settings.request_verify
+    logger.log('INFOR', f'Attempting to request {url}')
+    timeout = settings.request_timeout_second
+    verify = settings.request_ssl_verify
+    session = requests.Session()
+    session.trust_env = False
     try:
-        resp = requests.get(url, params=None, timeout=timeout, verify=verify)
+        resp = session.get(url, params=None, timeout=timeout, verify=verify)
     except Exception as e:
-        logger.log('DEBUG', f'Error request {url}')
+        logger.log('ALERT', f'Error request {url}')
         logger.log('DEBUG', e.args)
         return None
     return resp
@@ -731,5 +735,5 @@ def decode_resp_text(resp):
             content = str(content, encoding='gb18030', errors='strict')
         except (LookupError, TypeError, UnicodeError):
             # 最后尝试自动解码
-            content = str(content,  errors='replace')
+            content = str(content, errors='replace')
     return content
