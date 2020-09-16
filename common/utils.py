@@ -125,6 +125,9 @@ def read_target_file(target):
 def get_from_target(target):
     domains = set()
     if isinstance(target, str):
+        if target.endswith('.txt'):
+            logger.log('FATAL', 'Use targets parameter for multiple domain names')
+            exit(1)
         domain = match_main_domain(target)
         if not domain:
             return domains
@@ -686,11 +689,11 @@ def match_subdomains(domain, html, distinct=True, fuzzy=True):
 def check_random_subdomain(subdomains):
     if not subdomains:
         logger.log('ALERT', f'The generated dictionary is empty')
-        return False
+        return
     for subdomain in subdomains:
         if subdomain:
             logger.log('ALERT', f'Please check whether {subdomain} is correct or not')
-            return True
+            return
 
 
 def get_url_resp(url):

@@ -25,14 +25,15 @@ class RiskIQ(Query):
         if not resp:
             return
         data = resp.json()
-        names = data.get('subdomains')
-        self.subdomains = set(map(lambda sub: f'{sub}.{self.domain}', names))
+        subnames = data.get('subdomains')
+        subdomain_str = str(set(map(lambda subname: f'{subname}.{self.domain}', subnames)))
+        self.subdomains = self.collect_subdomains(subdomain_str)
 
     def run(self):
         """
         类执行入口
         """
-        if not self.check(self.user, self.key):
+        if not self.have_api(self.user, self.key):
             return
         self.begin()
         self.query()
@@ -53,4 +54,4 @@ def run(domain):
 
 
 if __name__ == '__main__':
-    run('example.com')
+    run('alibabagroup.com')
