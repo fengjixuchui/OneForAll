@@ -58,7 +58,7 @@ class OneForAll(object):
         python3 oneforall.py --target example.com run
         python3 oneforall.py --targets ./domains.txt run
         python3 oneforall.py --target example.com --alive False run
-        python3 oneforall.py --target example.com --brute True run
+        python3 oneforall.py --target example.com --brute False run
         python3 oneforall.py --target example.com --port medium run
         python3 oneforall.py --target example.com --format csv run
         python3 oneforall.py --target example.com --dns False run
@@ -73,7 +73,7 @@ class OneForAll(object):
 
     :param str  target:     One domain (target or targets must be provided)
     :param str  targets:    File path of one domain per line
-    :param bool brute:     Use brute module (default False)
+    :param bool brute:     Use brute module (default True)
     :param bool dns:       Use DNS resolution (default True)
     :param bool req:       HTTP request subdomains (default True)
     :param str  port:       The port range to request (default small port is 80,443)
@@ -264,6 +264,7 @@ class OneForAll(object):
         dt = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
         print(f'[*] Starting OneForAll @ {dt}\n')
         utils.check_env()
+        utils.auto_select_nameserver()
         if settings.enable_check_version:
             utils.check_version(version)
         logger.log('DEBUG', 'Python ' + utils.python_version())

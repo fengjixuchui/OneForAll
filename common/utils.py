@@ -1,23 +1,26 @@
-import json
 import os
 import re
 import sys
 import time
-import string
+import json
+import socket
 import random
+import string
 import platform
 import subprocess
+from urllib.parse import scheme_chars
 from ipaddress import IPv4Address, ip_address
+from pathlib import Path
 from stat import S_IXUSR
 
-import tenacity
+import dns
 import requests
-from pathlib import Path
-from common.records import Record, RecordCollection
+import tenacity
 from dns.resolver import Resolver
 
-from common.domain import Domain
 from common.database import Database
+from common.domain import Domain
+from common.records import Record, RecordCollection
 from config import settings
 from config.log import logger
 
@@ -32,6 +35,9 @@ user_agents = [
     'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.13; rv:61.0) '
     'Gecko/20100101 Firefox/68.0',
     'Mozilla/5.0 (X11; Linux i586; rv:31.0) Gecko/20100101 Firefox/68.0']
+
+IP_RE = re.compile(r'^(([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])\.){3}([0-9]|[1-9][0-9]|1[0-9]{2}|2[0-4][0-9]|25[0-5])$')  # pylint: disable=line-too-long
+SCHEME_RE = re.compile(r'^([' + scheme_chars + ']+:)?//')
 
 
 def gen_random_ip():
@@ -506,10 +512,8 @@ def delete_file(*paths):
 @tenacity.retry(stop=tenacity.stop_after_attempt(3))
 def check_net():
     logger.log('INFOR', 'Checking Internet environment')
-    urls = ['http://www.example.com', 'http://www.baidu.com',
-            'http://www.bing.com', 'http://www.taobao.com',
-            'http://www.linkedin.com', 'http://www.msn.com',
-            'http://www.apple.com', 'http://microsoft.com']
+    urls = ['http://www.baidu.com', 'http://www.bing.com',
+            'http://www.apple.com', 'http://www.microsoft.com']
     url = random.choice(urls)
     logger.log('INFOR', f'Trying to access {url}')
     session = requests.Session()
@@ -730,3 +734,102 @@ def decode_resp_text(resp):
 
 def sort_by_subdomain(data):
     return sorted(data, key=lambda item: item.get('subdomain'))
+
+
+def ping(host, path):
+    param = '-n' if platform.system().lower() == 'windows' else '-c'
+    command = ['ping', param, '5', host]
+    with open(path, "w") as f:
+        return subprocess.call(command, stdout=f, stderr=f)
+
+
+def ping_avg_time(nameserver):
+    check_dir(settings.temp_save_dir)
+    temp_path = settings.temp_save_dir.joinpath('ping')
+    ping(nameserver, path=temp_path)
+    with open(temp_path, 'r') as f:
+        text = f.read()
+        if '100.0% packet loss' in text or '100% packet loss' in text or '100% 丢失' in text:
+            logger.log('ALERT', f'100.0% packet loss, ping {nameserver} failed.')
+            return None
+        elif platform.system() in ('Darwin', 'Linux'):
+            try:
+                avg_time = re.findall(r'(?:min/avg/max/.+ )(?:\d+\.\d+)/(\d+\.\d+)/', text)[0]
+                logger.log('INFOR', f'ping {nameserver} average time {avg_time} ms.')
+            except IndexError:
+                return None
+            return avg_time
+        elif platform.system() == 'Windows':
+            try:
+                avg_time = re.findall(r'(?:Average|平均).+(\d.?)ms', text)[0]
+                logger.log('INFOR', f'ping {nameserver} average time {avg_time} ms.')
+            except IndexError:
+                return None
+            return avg_time
+        else:
+            logger.log('ALERT', f'{text}')
+            return None
+
+
+def auto_select_nameserver():
+    logger.log('INFOR', f'Ping test start, to select nameservers.')
+    avg_time1 = ping_avg_time('114.114.114.114')
+    avg_time2 = ping_avg_time('8.8.8.8')
+    if avg_time1 and avg_time2:
+        if avg_time1 < avg_time2:
+            change_nameservers_file('cn')
+            logger.log('INFOR', f'Ping test finished, use cn nameservers.')
+        else:
+            change_nameservers_file('common')
+            logger.log('INFOR', f'Ping test finished, use common nameservers.')
+    elif avg_time1 and not avg_time2:
+        change_nameservers_file('cn')
+        logger.log('INFOR', f'Ping test finished, use cn nameservers.')
+    elif not avg_time1 and avg_time1:
+        change_nameservers_file('common')
+        logger.log('INFOR', f'Ping test finished, use common nameservers.')
+    elif not avg_time1 and not avg_time1:
+        change_nameservers_file('default')
+        logger.log('INFOR', f'Ping test finished, use default nameservers.')
+        return
+
+
+def change_nameservers_file(option):
+    text = ''
+    if option == 'cn':
+        with open(settings.data_storage_dir.joinpath('cn_nameservers.txt'), 'r') as f:
+            text = f.read()
+    elif option == 'common':
+        with open(settings.data_storage_dir.joinpath('common_nameservers.txt'), 'r') as f:
+            text = f.read()
+    elif option == 'default':
+        for n in default_nameserver():
+            text = '\n'.join(n)
+    with open(settings.data_storage_dir.joinpath('nameservers.txt'), 'w') as f:
+        f.write(text)
+    return
+
+
+def default_nameserver():
+    try:
+        resolver = dns.resolver.Resolver()
+        return resolver.nameservers
+    except dns.resolver.NoResolverConfiguration:
+        logger.log('ERROR', 'Resolver configuration could not be read '
+                            'or specified no nameservers.')
+        exit(1)
+
+
+def looks_like_ip(maybe_ip):
+    """Does the given str look like an IP address?"""
+    if not maybe_ip[0].isdigit():
+        return False
+
+    try:
+        socket.inet_aton(maybe_ip)
+        return True
+    except (AttributeError, UnicodeError):
+        if IP_RE.match(maybe_ip):
+            return True
+    except socket.error:
+        return False
