@@ -1,39 +1,37 @@
-import base64
 import time
 
 from config import settings
 from common.search import Search
 
 
-class FoFa(Search):
+class Quake(Search):
     def __init__(self, domain):
         Search.__init__(self)
         self.domain = domain
-        self.module = 'Search'
-        self.source = 'FoFaAPISearch'
-        self.addr = 'https://fofa.info/api/v1/search/all'
+        self.module = 'Quake'
+        self.source = "QuakeAPISearch"
+        self.addr = 'https://quake.360.net/api/v3/search/quake_service'
         self.delay = 1
-        self.email = settings.fofa_api_email
-        self.key = settings.fofa_api_key
+        self.key = settings.quake_api_key
 
     def search(self):
         """
         发送搜索请求并做子域匹配
         """
-        self.page_num = 1
-        subdomain_encode = f'domain="{self.domain}"'.encode('utf-8')
-        query_data = base64.b64encode(subdomain_encode)
+        self.per_page_num = 100
+        self.page_num = 0
         while True:
             time.sleep(self.delay)
             self.header = self.get_header()
+            self.header.update({'Content-Type': 'application/json'})
+            self.header.update({'X-QuakeToken': self.key})
             self.proxy = self.get_proxy(self.source)
-            query = {'email': self.email,
-                     'key': self.key,
-                     'qbase64': query_data,
-                     'page': self.page_num,
-                     'full': 'true',
-                     'size': 1000}
-            resp = self.get(self.addr, query)
+
+            query = {'query': 'domain:"' + self.domain + '"',
+                     'start': self.page_num * self.per_page_num,
+                     'size': self.per_page_num,
+                     'include': ["service.http.host"]}
+            resp = self.post(self.addr, json=query)
             if not resp:
                 return
             resp_json = resp.json()
@@ -41,16 +39,16 @@ class FoFa(Search):
             if not subdomains:  # 搜索没有发现子域名则停止搜索
                 break
             self.subdomains.update(subdomains)
-            size = resp_json.get('size')
-            if size < 1000:
-                break
+            total = resp_json.get('meta').get('pagination').get('total')
             self.page_num += 1
+            if self.page_num * self.per_page_num >= int(total):
+                break
 
     def run(self):
         """
         类执行入口
         """
-        if not self.have_api(self.email, self.key):
+        if not self.have_api(self.key):
             return
         self.begin()
         self.search()
@@ -66,9 +64,9 @@ def run(domain):
 
     :param str domain: 域名
     """
-    search = FoFa(domain)
-    search.run()
+    query = Quake(domain)
+    query.run()
 
 
 if __name__ == '__main__':
-    run('example.com')
+    run('nosugartech.com')

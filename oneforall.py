@@ -32,7 +32,7 @@ blue = '\033[01;34m'
 red = '\033[1;31m'
 end = '\033[0m'
 
-version = 'v0.4.3'
+version = 'v0.4.5'
 message = white + '{' + red + version + ' #dev' + white + '}'
 
 oneforall_banner = f"""
@@ -98,7 +98,6 @@ class OneForAll(object):
         self.domains = set()  # All domains that are to be collected
         self.data = list()  # The subdomain results of the current domain
         self.datas = list()  # All subdomain results of the domain
-        self.in_china = None
         self.access_internet = False
         self.enable_wildcard = False
 
@@ -166,14 +165,15 @@ class OneForAll(object):
             # may cause other network tasks to be error
             brute = Brute(self.domain, word=True, export=False)
             brute.enable_wildcard = self.enable_wildcard
-            brute.in_china = self.in_china
             brute.quite = True
             brute.run()
 
         utils.deal_data(self.domain)
         # Export results without resolve
         if not self.dns:
-            return self.export_data()
+            self.data = self.export_data()
+            self.datas.extend(self.data)
+            return self.data
 
         self.data = utils.get_data(self.domain)
 
@@ -185,7 +185,9 @@ class OneForAll(object):
 
         # Export results without HTTP request
         if not self.req:
-            return self.export_data()
+            self.data = self.export_data()
+            self.datas.extend(self.data)
+            return self.data
 
         if self.enable_wildcard:
             # deal wildcard
@@ -210,8 +212,8 @@ class OneForAll(object):
             enrich = Enrich(self.domain)
             enrich.run()
 
-        # Export
-        self.datas.extend(self.export_data())
+        self.data = self.export_data()
+        self.datas.extend(self.data)
 
         # Scan subdomain takeover
         if self.takeover:
@@ -233,7 +235,7 @@ class OneForAll(object):
         logger.log('DEBUG', 'Python ' + utils.python_version())
         logger.log('DEBUG', 'OneForAll ' + version)
         utils.check_dep()
-        self.access_internet, self.in_china = utils.get_net_env()
+        self.access_internet = utils.get_net_env()
         if self.access_internet and settings.enable_check_version:
             utils.check_version(version)
         logger.log('INFOR', 'Start running OneForAll')

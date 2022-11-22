@@ -18,6 +18,7 @@ result_save_dir = relative_directory.joinpath('results')  # 结果保存目录
 temp_save_dir = result_save_dir.joinpath('temp')
 
 # OneForAll入口参数设置
+enable_check_network = True  # 开启网络环境检查
 enable_check_version = True  # 开启最新版本检查
 enable_brute_module = True  # 使用爆破模块(默认True)
 enable_dns_resolve = True  # 使用DNS解析子域(默认True)
@@ -27,12 +28,11 @@ enable_altdns_module = True  # 开启altdns模块,开启会利用置换技术重
 enable_enrich_module = True  # 开启enrich模块，开启会富化出信息，如ip的cdn，cidr，asn，org，addr和isp等信息
 enable_banner_identify = True  # 开启WEB指纹识别模块(默认True)
 enable_takeover_check = False  # 开启子域接管风险检查(默认False)
-# 参数可选值有'small', 'medium', 'large'
-http_request_port = 'small'  # HTTP请求子域(默认'small'，探测80,443端口)
+# 参数可选值有 'small', 'medium', 'large'
+http_request_port = 'small'  # HTTP请求子域(默认 'small'，探测80,443端口)
 # 参数可选值True，False分别表示导出存活，全部子域结果
 result_export_alive = False  # 只导出存活的子域结果(默认False)
-# 参数可选格式有'rst', 'csv', 'tsv', 'json', 'yaml', 'html',
-# 'jira', 'xls', 'xlsx', 'dbf', 'latex', 'ods'
+# 参数可选格式有 'csv', 'json'
 result_save_format = 'csv'  # 子域结果保存文件格式(默认csv)
 # 参数path默认None使用OneForAll结果目录自动生成路径
 result_save_path = None  # 子域结果保存文件路径(默认None)
@@ -42,8 +42,7 @@ save_module_result = False  # 保存各模块发现结果为json文件(默认Fal
 enable_all_module = True  # 启用所有收集模块(默认True)
 enable_partial_module = []  # 启用部分收集模块 必须禁用enable_all_module才能生效
 # 只使用ask和baidu搜索引擎收集子域的示例
-# enable_partial_module = [('modules.search', 'ask')
-#                          ('modules.search', 'baidu')]
+# enable_partial_module = ['modules.search.ask', 'modules.search.baidu']
 module_thread_timeout = 90.0  # 每个收集模块线程超时时间(默认90秒)
 
 # 爆破模块设置
@@ -56,6 +55,7 @@ brute_socket_num = 1  # 爆破时每个进程下的socket数量
 brute_resolve_num = 15  # 解析失败时尝试换名称服务器重查次数
 # 爆破所使用的字典路径(默认None则使用data/subdomains.txt，自定义字典请使用绝对路径)
 brute_wordlist_path = None
+use_china_nameservers = True  # 使用中国域名服务器 如果你所在网络不在中国则建议设置False
 # 域名的权威DNS名称服务器的保存路径 当域名开启了泛解析时会使用该名称服务器来进行A记录查询
 authoritative_dns_path = data_storage_dir.joinpath('authoritative_dns.txt')
 enable_recursive_brute = False  # 是否使用递归爆破(默认False)
@@ -99,8 +99,8 @@ request_proxy_pool = [{'http': 'http://127.0.0.1:1080',
 
 
 # 请求设置
-request_thread_count = None  # 请求线程数量(默认None，则根据内存大小设置)
-request_timeout_second = (3.05, 27)  # 请求超时秒数(默认connect timout推荐略大于3秒，read秒)
+request_thread_count = None  # 请求线程数量(默认None，则根据情况自动设置)
+request_timeout_second = (13, 27)  # 请求超时秒数(默认connect timout推荐略大于3秒)
 request_ssl_verify = False  # 请求SSL验证(默认False)
 request_allow_redirect = True  # 请求允许重定向(默认True)
 request_redirect_limit = 10  # 请求跳转限制(默认10次)
@@ -175,6 +175,9 @@ censys_api_secret = ''
 # 免费的API有效期只有1个月，到期之后可以再次生成，每月可以查询250次。
 binaryedge_api = ''
 
+# BeVigil API: https://bevigil.com/osint-api
+bevigil_api = ''
+
 # Chinaz可以免费注册获取API：http://api.chinaz.com/ApiDetails/Alexa
 chinaz_api = ''
 
@@ -242,3 +245,9 @@ github_api_token = ''
 
 # obtain Cloudflare API key from https://dash.cloudflare.com/profile/api-tokens
 cloudflare_api_token = ''
+
+# https://hunter.qianxin.com/home/userInfo
+hunter_api_key = ''
+
+# https://api-docs.fullhunt.io/
+fullhunt_api_key = ''

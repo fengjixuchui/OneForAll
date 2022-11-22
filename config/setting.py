@@ -1,6 +1,6 @@
 # coding=utf-8
 """
-OneForAll配置
+OneForAll自定义配置
 """
 
 import pathlib
@@ -10,6 +10,7 @@ relative_directory = pathlib.Path(__file__).parent.parent  # OneForAll代码相�
 data_storage_dir = relative_directory.joinpath('data')  # 数据存放目录
 
 # OneForAll入口参数设置
+enable_check_network = True  # 开启网络环境检查
 enable_check_version = True  # 开启最新版本检查
 enable_brute_module = True  # 使用爆破模块(默认True)
 enable_dns_resolve = True  # 使用DNS解析子域(默认True)
@@ -32,13 +33,13 @@ save_module_result = False  # 保存各模块发现结果为json文件(默认Fal
 enable_all_module = True  # 启用所有收集模块(默认True)
 enable_partial_module = []  # 启用部分收集模块 必须禁用enable_all_module才能生效
 # 只使用ask和baidu搜索引擎收集子域的示例
-# enable_partial_module = [('modules.search', 'ask')
-#                          ('modules.search', 'baidu')]
+# enable_partial_module = ['modules.search.ask', 'modules.search.baidu']
 
 # 爆破模块设置
 brute_concurrent_num = 2000  # 爆破时并发查询数量(默认2000，最大推荐10000)
 # 爆破所使用的字典路径(默认None则使用data/subdomains.txt，自定义字典请使用绝对路径)
 brute_wordlist_path = None
+use_china_nameservers = True  # 使用中国域名服务器 如果你所在网络不在中国则建议设置False
 enable_recursive_brute = False  # 是否使用递归爆破(默认False)
 brute_recursive_depth = 2  # 递归爆破深度(默认2层)
 # 爆破下一层子域所使用的字典路径(默认None则使用data/subnames_next.txt，自定义字典请使用绝对路径)
@@ -68,9 +69,33 @@ proxy_partial_module = ['GoogleQuery', 'AskSearch', 'DuckDuckGoSearch',
                         'YandexSearch', 'CrossDomainXml',
                         'ContentSecurityPolicy']  # 代理自定义的模块
 request_proxy_pool = [{'http': 'http://127.0.0.1:1080',
-                       'https': 'https://127.0.0.1:1080'}]  # 代理池
+                       'https': 'http://127.0.0.1:1080'}]  # 代理池
 # request_proxy_pool = [{'http': 'socks5h://127.0.0.1:10808',
 #                        'https': 'socks5h://127.0.0.1:10808'}]  # 代理池
+
+
+# 请求设置
+request_thread_count = None  # 请求线程数量(默认None，则根据情况自动设置)
+request_timeout_second = (13, 27)  # 请求超时秒数(默认connect timout推荐略大于3秒)
+request_ssl_verify = False  # 请求SSL验证(默认False)
+request_allow_redirect = True  # 请求允许重定向(默认True)
+request_redirect_limit = 10  # 请求跳转限制(默认10次)
+# 默认请求头 可以在headers里添加自定义请求头
+request_default_headers = {
+    'Accept': 'text/html,application/xhtml+xml,'
+              'application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Encoding': 'gzip, deflate',
+    'Accept-Language': 'en-US,en;q=0.9,zh-CN;q=0.8,zh;q=0.7',
+    'Cache-Control': 'max-age=0',
+    'DNT': '1',
+    'Referer': 'https://www.google.com/',
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 '
+                  '(KHTML, like Gecko) Chrome/76.0.3809.100 Safari/537.36',
+    'Upgrade-Insecure-Requests': '1',
+    'X-Forwarded-For': '127.0.0.1'
+}
+enable_random_ua = True  # 使用随机UA(默认True，开启可以覆盖request_default_headers的UA)
+
 
 # 搜索模块设置
 enable_recursive_search = False  # 递归搜索子域

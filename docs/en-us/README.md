@@ -4,8 +4,8 @@
 [![codecov](https://codecov.io/gh/shmilylty/OneForAll/branch/master/graph/badge.svg)](https://codecov.io/gh/shmilylty/OneForAll)
 [![Maintainability](https://api.codeclimate.com/v1/badges/1287668a6b4c72af683e/maintainability)](https://codeclimate.com/github/shmilylty/OneForAll/maintainability)
 [![License](https://img.shields.io/github/license/shmilylty/OneForAll)](https://github.com/shmilylty/OneForAll/tree/master/LICENSE)
-[![python](https://img.shields.io/badge/python-3.6|3.7|3.8-blue)](https://github.com/shmilylty/OneForAll/tree/master/)
-[![python](https://img.shields.io/badge/release-v0.4.3-brightgreen)](https://github.com/shmilylty/OneForAll/releases)
+[![python](https://img.shields.io/badge/python-3.6+-blue)](https://github.com/shmilylty/OneForAll/tree/master/)
+[![python](https://img.shields.io/badge/release-v0.4.5-brightgreen)](https://github.com/shmilylty/OneForAll/releases)
 
 👊**OneForAll is a powerful subdomain integration tool**  📝[中文文档](https://github.com/shmilylty/OneForAll/tree/master/README.md)
 
@@ -123,7 +123,7 @@ Let's take the command `python3 oneforall.py --target example.com run` as an exa
 
 `example_com_now_result` table stores the collection results of the current subdomains. Usually using this table is enough.
 
-For more information, please see [Field explanation](./docs/field.md).
+For more information, please see [Field explanation](../field.md).
 
 </details>
 
@@ -221,7 +221,7 @@ Problems with other tools
 
 In order to solve the above problems, OneForAll born! As its name, OneForAll is committed to becoming the only one subdomain integration tool you need. We hope that one day OneForAll can be called "probably the best subdomain tool"
 
-At present, OneForAll is under development, there must be a lot of problems and areas for improvement. Welcome to submit [Issues](https://github.com/shmilylty/OneForAll/issues) or [PR](https://github.com/shmilylty/OneForAll/pulls), If you like, star please✨. You can contact me through QQ group [**824414244**](//shang.qq.com/wpa/qunwpa?idkey=125d3689b60445cdbb11e4ddff38036b7f6f2abbf4f7957df5dddba81aa90771) or twitter [tweet](https://twitter.com/shmilylty) to me: 👨‍👨‍👦‍👦.
+At present, OneForAll is under development, there must be a lot of problems and areas for improvement. Welcome to submit [Issues](https://github.com/shmilylty/OneForAll/issues) or [PR](https://github.com/shmilylty/OneForAll/pulls), If you like, star please✨. You can contact me through QQ group [**824414244**](https://shang.qq.com/wpa/qunwpa?idkey=125d3689b60445cdbb11e4ddff38036b7f6f2abbf4f7957df5dddba81aa90771) or twitter [tweet](https://twitter.com/shmilylty) to me: 👨‍👨‍👦‍👦.
 
 ## 👍Features
 
@@ -229,7 +229,7 @@ At present, OneForAll is under development, there must be a lot of problems and 
 1. Use 6 certificate modules: `censys_api`, `certspotter`, `crtsh`, `entrust`, `google`, `spyse_api`.
 2. Use 6 baseline testing modules: scan domain transfer vulnerability `axfr`, cross-domain policy file `cdx`, HTTPS certificate `cert`, content security policy `csp`, robots file `robots`, and sitemap file `sitemap`, NSEC record `nsec`. NSEC3 record and other modules will be added later.
 3. Use 2 web crawler modules: `archirawl`, `commoncrawl`, which is still being debugged and needs to be added and improved). 
-4. Use 24 DNS datasets modules: `binaryedge_api`, `bufferover`, `cebaidu`, `chinaz`, `chinaz_api`, `circl_api`, `cloudflare`, `dnsdb_api`, `dnsdumpster`, `hackertarget`, `ip138`, `ipv4info_api`, `netcraft`, `passivedns_api`, `ptrarchive`, `qianxun`, `rapiddns`, `riddler`, `robtex`, `securitytrails_api`, `sitedossier`, `threatcrowd`, `wzpc`, `ximcx`.
+4. Use 24 DNS datasets modules: `bevigil`, `binaryedge_api`, `bufferover`, `cebaidu`, `chinaz`, `chinaz_api`, `circl_api`, `cloudflare`, `dnsdb_api`, `dnsdumpster`, `hackertarget`, `ip138`, `ipv4info_api`, `netcraft`, `passivedns_api`, `ptrarchive`, `qianxun`, `rapiddns`, `riddler`, `robtex`, `securitytrails_api`, `sitedossier`, `threatcrowd`, `wzpc`, `ximcx`.
 5. Use 6 DNS queries modules: enumerating SRV records `srv` and collect from `MX`, `NS`, `SOA`, `TXT`, `SPF`. 
 6. Use 6 threat intelligence modules: `alienvault`, `riskiq_ api`, `threatbook_ api`, `threatkeeper `, `virustotal`, `virustotal_ api`, which need to be added and improved.
 7. Use 16 search engines modules: `ask`, `baidu`, `bing`, `bing_api`, `fofa_api`, `gitee`, `github_api`, `google`, `google_api`, `shodan_api`, `so`, `sogou`, `yahoo`, `yandex`, `zoomeye_api`, except for special search engines. General search engines support automatic exclusion of search, full search and recursive search. 
@@ -283,7 +283,7 @@ Very warmly welcome all people to make OneForAll better together!
 * **[Jing Ling](https://github.com/shmilylty)**
   * Core developer
 
-You can view all contributors and their contributions in the [contributor documentation](https://github.com/shmilylty/OneForAll/tree/master/docs/contributors.md)) and thank them for making OneForAll more powerful and useful.
+You can view all contributors and their contributions in the [contributor documentation](https://github.com/shmilylty/OneForAll/tree/master/docs/contributors.md) and thank them for making OneForAll more powerful and useful.
 
 ## 📄License
 
@@ -294,6 +294,8 @@ The project has signed a GPL-3.0 license, for more information, please read [LIC
 Thanks to the various subdomain collection projects of online open source!
 
 Thanks ace of [A-Team](https://github.com/QAX-A-Team) for their enthusiastic and unselfish answers!
+
+Developed with drive and [PyCharm](https://www.jetbrains.com/pycharm/)!
 
 ## 📜Disclaimer 
 

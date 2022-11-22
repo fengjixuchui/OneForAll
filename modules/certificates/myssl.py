@@ -1,13 +1,13 @@
 from common.query import Query
 
 
-class ThreatMiner(Query):
+class MySSL(Query):
     def __init__(self, domain):
         Query.__init__(self)
         self.domain = domain
-        self.module = 'Intelligence'
-        self.source = 'ThreatMinerQuery'
-        self.addr = 'https://api.threatminer.org/v2/domain.php'
+        self.module = 'Certificate'
+        self.source = 'MySSLQuery'
+        self.addr = 'https://myssl.com/api/v1/discover_sub_domain'
 
     def query(self):
         """
@@ -15,7 +15,7 @@ class ThreatMiner(Query):
         """
         self.header = self.get_header()
         self.proxy = self.get_proxy(self.source)
-        params = {'q': self.domain, 'rt': 5}
+        params = {'domain': self.domain}
         resp = self.get(self.addr, params)
         self.subdomains = self.collect_subdomains(resp)
 
@@ -36,10 +36,11 @@ def run(domain):
     类统一调用入口
 
     :param str domain: 域名
+
     """
-    query = ThreatMiner(domain)
+    query = MySSL(domain)
     query.run()
 
 
 if __name__ == '__main__':
-    run('example.com')
+    run('freebuf.com')

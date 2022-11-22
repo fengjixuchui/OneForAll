@@ -1,3 +1,4 @@
+import os
 import re
 import sys
 import time
@@ -53,7 +54,7 @@ def gen_fake_header():
     """
     Generate fake request headers
     """
-    headers = settings.request_default_headers
+    headers = settings.request_default_headers.copy()
     if not isinstance(headers, dict):
         headers = dict()
     if settings.enable_random_ua:
@@ -191,7 +192,7 @@ def check_path(path, name, fmt):
     else:
         path = default_path
     path = Path(path)
-    if not path.suffix:  # 输入是目录的情况
+    if path.is_dir():  # 输入是目录的情况
         path = path.joinpath(filename)
     parent_dir = path.parent
     if not parent_dir.exists():
@@ -329,6 +330,8 @@ def export_all_results(path, name, fmt, datas):
         row_list.append(Record(keys, values))
     rows = RecordCollection(iter(row_list))
     content = rows.export(fmt)
+    if fmt == 'csv':
+        content = '\ufeff' + content
     save_to_file(path, content)
 
 
@@ -476,7 +479,7 @@ def ip_is_public(ip_str):
 
 
 def get_request_count():
-    return 32
+    return os.cpu_count() * 16
 
 
 def uniq_dict_list(dict_list):
@@ -494,28 +497,35 @@ def delete_file(*paths):
 @tenacity.retry(stop=tenacity.stop_after_attempt(3),
                 wait=tenacity.wait_fixed(2))
 def check_net():
-    urls = ['http://ipinfo.io/json', 'http://ipconfig.io/json']
-    url = random.choice(urls)
-    header = {'User_Agent': 'curl'}
-    timeout = settings.request_timeout_second
-    verify = settings.request_ssl_verify
-    logger.log('DEBUG', f'Trying to access {url}')
-    session = requests.Session()
-    session.trust_env = False
-    try:
-        rsp = session.get(url, headers=header, timeout=timeout, verify=verify)
-    except Exception as e:
-        logger.log('ERROR', e.args)
-        logger.log('ALERT', 'Unable to access Internet, retrying...')
-        raise e
-    logger.log('DEBUG', 'Access to Internet OK')
-    country = rsp.json().get('country').lower()
-    if country in ['cn', 'china']:
-        logger.log('DEBUG', f'The computer is located in China')
-        return True, True
-    else:
-        logger.log('DEBUG', f'The computer is not located in China')
-        return True, False
+    times = 0
+    while True:
+        times += 1
+        urls = ['https://www.baidu.com', 'https://www.bing.com',
+                'https://www.cloudflare.com', 'https://www.akamai.com/',
+                'https://www.fastly.com/', 'https://www.amazon.com/']
+        url = random.choice(urls)
+        logger.log('DEBUG', f'Trying to access {url}')
+        header = get_random_header()
+        proxy = get_proxy()
+        timeout = settings.request_timeout_second
+        verify = settings.request_ssl_verify
+        session = requests.Session()
+        session.trust_env = False
+        session = requests.Session()
+        session.trust_env = False
+        try:
+            rsp = session.get(url, headers=header, proxies=proxy,
+                              timeout=timeout, verify=verify)
+        except Exception as e:
+            logger.log('ERROR', e.args)
+            logger.log('ALERT', f'Unable to access Internet, retrying for the {times}th time')
+        else:
+            if rsp.status_code == 200:
+                logger.log('DEBUG', 'Access to Internet OK')
+                return True
+        if times >= 3:
+            logger.log('ALERT', 'Access to Internet failed')
+            return False
 
 
 def check_dep():
@@ -537,7 +547,7 @@ def get_net_env():
     except Exception as e:
         logger.log('DEBUG', e.args)
         logger.log('ALERT', 'Please check your network environment.')
-        return False, None
+        return False
     return result
 
 
